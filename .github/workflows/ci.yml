@@ -183,7 +183,18 @@ jobs:
       - name: Record Windows upgrade baseline checksums
         if: runner.os == 'Windows'
         shell: pwsh
-        run: Get-ChildItem upgrade-baseline -Recurse -File | Get-FileHash -Algorithm SHA256 | Format-List
+        run: |
+          $expected = @{
+            'Forma_0.1.0_x64_en-US.msi' = 'ab5e74a3778d8e6339c924f85427cd3599fb0c3276b2a3d2e135d1a598f12c28'
+            'Forma_0.1.0_x64-setup.exe' = '8bea842d55f4e80a3e6baadd2909f3d9b3872b17d665d912dcd770143886612d'
+          }
+          $files = @(Get-ChildItem upgrade-baseline -Recurse -File)
+          if ($files.Count -ne 2) { throw 'Expected exactly two verified baseline installers' }
+          foreach ($file in $files) {
+            $hash = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($hash -ne $expected[$file.Name]) { throw 'Upgrade baseline differs from the verified M06.1 bytes' }
+            Write-Output "$hash  $($file.Name)"
+          }
       - name: MSI install, upgrade, restart and uninstall
         if: runner.os == 'Windows'
         run: python3 scripts/package-smoke.py src-tauri/target/${{ matrix.target }}/release/bundle --format msi --ui --upgrade-from upgrade-baseline

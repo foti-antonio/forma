@@ -114,7 +114,8 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
         executable = install / "usr/bin/forma"
         method = "deb extraction and packaged process initialization (no installation)"
     if args.ui and sys.platform.startswith('linux'):
-        env.update(GTK_MODULES='gail:atk-bridge', NO_AT_BRIDGE='0')
+        env.update(GTK_MODULES='atk-bridge', NO_AT_BRIDGE='0')
+        subprocess.run(['dbus-update-activation-environment', 'DISPLAY', 'XAUTHORITY'], check=True, env=env)
         # Fresh Xvfb session only; do not alter an existing desktop WM.
         if subprocess.run(['wmctrl', '-m'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
             wm = subprocess.Popen(['openbox'], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -126,10 +127,18 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
         assert info['CFBundleShortVersionString'] == '0.1.0-beta.1', info
         print('PASS: DMG application metadata, macOS deployment floor 15.0')
     if sys.platform == 'win32':
-        runtime = subprocess.check_output(['powershell', '-NoProfile', '-Command',
-            r"$p=@('HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'HKCU:\Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'); Get-ItemProperty $p -ErrorAction SilentlyContinue | Select-Object -ExpandProperty pv"], text=True).strip()
-        # Runtime initialization below is authoritative; registry discovery is diagnostic.
-        print('WebView2 registered version(s): ' + (runtime or 'not discovered; see launch result'))
+        import winreg
+        versions = set()
+        for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+            for view in (winreg.KEY_WOW64_32KEY, winreg.KEY_WOW64_64KEY):
+                try:
+                    with winreg.OpenKey(hive, r'Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 0, winreg.KEY_READ | view) as key:
+                        versions.add(str(winreg.QueryValueEx(key, 'pv')[0]))
+                except FileNotFoundError:
+                    pass
+        # Absent optional registry views are diagnostic, not a failed UI result.
+        # Successful native rendering below is the actual runtime acceptance gate.
+        print('WebView2 registered version(s): ' + (', '.join(sorted(versions)) or 'not discovered; see native UI launch result'), flush=True)
 
     def ui(process, phase):
         if sys.platform == 'win32':
