@@ -17,6 +17,11 @@ may require network access. On macOS retain the exact Gatekeeper message and
 confirm Developer ID/notarization status. Do not disable security controls,
 remove quarantine or use ad-hoc signing as a trust workaround.
 
+M07 records WebKit subprocess shutdown crashes on the Linux development host's
+mixed extracted-runtime/host-graphics environment. Preserve sanitized crash
+metadata and consult [M07](../M07.md); no universal graphics workaround or clean
+supported-desktop stability result is claimed.
+
 Only one Forma process may own an app-data directory. Close the prior process
 normally; do not delete data/locks while it is running. If startup reports a
 newer unsupported schema, use a compatible newer build; do not edit schema

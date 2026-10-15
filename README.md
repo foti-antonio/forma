@@ -24,6 +24,18 @@ as your OS user and require explicit authorization. Backups are unencrypted and
 log redaction is incomplete. Read the [security model](docs/SECURITY-MODEL.md)
 before enabling agents. Local-first Forma does not make provider inference offline.
 
+## Screenshots
+
+Genuine Linux desktop captures of this beta with an isolated sample workspace.
+
+| Light                                                                | Dark                                                               |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| ![Forma projects in light mode](docs/screenshots/projects-light.png) | ![Forma projects in dark mode](docs/screenshots/projects-dark.png) |
+
+Download the unpublished [six-installer candidate](https://github.com/foti-antonio/forma/actions/runs/38807628298/artifacts/12007393471)
+and verify its [SHA-256 checksums](docs/releases/v0.1.0-beta.1.SHA256SUMS).
+See [M07](M07.md) for the exact source and remaining distribution gates.
+
 ## Develop
 
 Install Git, **Node.js 24 LTS**, **pnpm 11.3.0**, and Rust 1.90 or newer (current stable recommended) through
@@ -154,7 +166,8 @@ agent executable selection, approval, worktree execution with a compiled simulat
 CLI, result acceptance, cancellation, forced-exit cleanup and restart history. This is native UI verification; real
 provider verification is recorded separately in M05. Add `--beta` for the M07
 accessibility-driven queue/independent-test/cleanup flow, workspace/project
-edit/delete, appearance persistence, and minimum-window checks. It uses the
+edit/delete, appearance persistence, and minimum-window checks (the resize probe
+requires Hyprland 0.55+ Lua dispatchers). It uses the
 compiled fixture and an isolated repository; keep Forma focused throughout.
 Run `python3 scripts/native-git-smoke.py src-tauri/target/debug/forma` for a separate
 real-repository flow covering native folder connection, confirmed branch/commit

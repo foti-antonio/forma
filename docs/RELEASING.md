@@ -6,6 +6,8 @@ user approval. Branch pushes build review candidates only. There is no updater.
 
 ## Candidate preparation
 
+Use README's Node/pnpm/Rust environment and Python 3.11+ for the artifact tooling.
+
 1. Work on `milestone/m07-public-beta`, starting from the verified M06.1 lineage.
    Preserve `dev.forma.desktop`, all released migrations and user data.
 2. Align `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` and
@@ -30,8 +32,9 @@ user approval. Branch pushes build review candidates only. There is no updater.
 The repository owner must provision a GitHub environment named `release-signing`
 with required reviewers, prevent self-review, restrict deployment refs to approved
 version tags, and restrict who can create matching tags using repository rulesets.
-The release policy job reads the environment and fails unless reviewer protection
-and prevent-self-review are present. No environment or credential is created by
+The release policy job reads the environment with `actions: read` and fails unless
+reviewer protection and prevent-self-review are present. This read permission is
+required by [GitHub's environment API](https://docs.github.com/en/rest/deployments/environments#get-an-environment). No environment or credential is created by
 this milestone. Availability of environment protections depends on repository
 visibility/plan. Resolve that before any approved tag.
 
@@ -47,8 +50,13 @@ Environment secrets (never repository files or pull request logs):
 - Apple: `APPLE_CERTIFICATE` (base64 Developer ID Application P12),
   `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY` (full Developer ID
   Application identity), `APPLE_ID`, `APPLE_PASSWORD` (app-specific password),
-  `APPLE_TEAM_ID`. Tauri imports/signs/notarizes. The workflow checks `codesign`,
-  `spctl`, and stapled app/DMG tickets; missing credentials or failed trust stops it.
+  `APPLE_TEAM_ID`. Tauri imports/signs/notarizes the app. The protected step
+  additionally submits the signed DMG with `notarytool`, requires `Accepted`,
+  staples its ticket and validates it. The workflow checks `codesign`, `spctl`,
+  and app/DMG tickets; missing credentials or failed trust stops it. The pinned
+  [CLI 2.12.2 signing source](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.12.2/crates/tauri-bundler/src/bundle/macos/sign.rs)
+  handles certificate import; its [DMG bundler](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.12.2/crates/tauri-bundler/src/bundle/macos/dmg/mod.rs)
+  signs the image, so image notarization/stapling is an explicit additional step.
 
 Credentials exist only in signing steps on fresh hosted runners. No shell tracing,
 secret printing, certificate upload or artifacts containing signing material.

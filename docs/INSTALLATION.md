@@ -14,6 +14,11 @@ matching target archive. Extract before verifying or installing.
 | Apple Silicon | aarch64-apple-darwin     | Native Apple Silicon macOS; hosted macOS 15 builds tested          |
 
 Configured minimum versions are not claims of testing on every supported OS.
+The frontend uses Tailwind 4, whose [browser baseline](https://tailwindcss.com/docs/compatibility)
+includes Safari 16.4 / Chrome 111 / Firefox 128. The inherited macOS 10.15 native
+packaging floor does not establish compatible WKWebView rendering. Selecting and
+testing the actual minimum macOS/WebKit baseline is a public distribution gate;
+only macOS 15 hosted initialization is currently evidenced.
 Linux ARM, Windows ARM and universal macOS packages are not provided.
 
 ## Check the download

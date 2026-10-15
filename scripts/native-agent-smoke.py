@@ -215,11 +215,14 @@ def click(name):
 def fill(name, value):
     node = control(name, ('entry', 'text'))
     assert Atspi.Component.grab_focus(node), 'Cannot focus ' + name
-    keys('-M', 'ctrl', '-k', 'a', '-m', 'ctrl')
+    time.sleep(.3)
+    # These QA values are single-line, including the JSON argument array. Use
+    # grouped Home/Shift+End replacement to avoid virtual Ctrl+A keymap issues.
+    keys('-k', 'Home', '-M', 'shift', '-k', 'End', '-m', 'shift', '-k', 'BackSpace')
     if value:
         text(value)
-    else:
-        keys('-k', 'BackSpace')
+    until(lambda: Atspi.Text.get_text(control(name, ('entry', 'text')), 0, -1) == value,
+          'native text replacement: ' + name)
 
 
 def choose_executable(name, title, path):
@@ -230,6 +233,20 @@ def choose_executable(name, title, path):
     pick_native(path)
     until(lambda: active().get('pid') == process.pid, 'return from native executable picker')
     native_dialog = None
+
+
+def resize_test_window(width, height, center=False):
+    assert focused(), 'App lost focus before test-window adjustment'
+    selector = f'pid:{process.pid}'
+    # Float dispatch toggles on this host; inspect the current state first.
+    if not active().get('floating'):
+        subprocess.run(['hyprctl', 'dispatch', f'hl.dsp.window.float({{window="{selector}"}})'], check=True, stdout=subprocess.DEVNULL)
+    until(lambda: active().get('pid') == process.pid and active().get('floating'), 'floating test window')
+    subprocess.run(['hyprctl', 'dispatch', f'hl.dsp.window.resize({{x={width},y={height},window="{selector}"}})'], check=True, stdout=subprocess.DEVNULL)
+    until(lambda: active().get('pid') == process.pid and active().get('size') == [width, height], f'exact {width}x{height} test window')
+    if center:
+        subprocess.run(['hyprctl', 'dispatch', f'hl.dsp.window.center({{window="{selector}"}})'], check=True, stdout=subprocess.DEVNULL)
+    time.sleep(.5)
 
 
 def beta_qa():
@@ -299,25 +316,27 @@ def beta_qa():
     fill('Project name', 'Beta QA engine')
     click('Save changes')
     until(lambda: rows('SELECT name FROM projects') == [('Beta QA engine',)], 'project edit')
+    # These operations affect only this temporary app window.
+    resize_test_window(1200, 800, center=True)
     click('light theme')
     until(lambda: rows('SELECT theme FROM app_state') == [('light',)], 'light theme persisted')
     screenshot('beta-light-projects')
     click('dark theme')
     until(lambda: rows('SELECT theme FROM app_state') == [('dark',)], 'dark theme persisted')
     screenshot('beta-dark-projects')
-    # Resize this test window only; never modify desktop configuration.
-    subprocess.run(['hyprctl', 'dispatch', 'setfloating', f'pid:{process.pid}'], check=True, stdout=subprocess.DEVNULL)
-    subprocess.run(['hyprctl', 'dispatch', 'resizewindowpixel', f'exact 760 540,pid:{process.pid}'], check=True, stdout=subprocess.DEVNULL)
-    time.sleep(.8)
-    w = active()
-    assert w['size'] == [760, 540], w['size']
+    resize_test_window(760, 540)
     click('Beta QA engine')
     click('Board')
+    card = control('Beta queued task', ('button',), partial=True)
+    assert Atspi.Component.grab_focus(card), 'Cannot keyboard-focus small-window card'
+    time.sleep(.5)
     screenshot('beta-small-board')
     click('List')
     click('Beta queued task')
     click('Preview Markdown')
-    control('Write Markdown', ('button',))
+    preview_toggle = control('Write Markdown', ('button', 'toggle button'))
+    assert Atspi.Component.grab_focus(preview_toggle)
+    time.sleep(.5)
     screenshot('beta-small-markdown')
     keys('-k', 'Escape')
     stop()

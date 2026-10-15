@@ -143,7 +143,14 @@ jobs:
           codesign --verify --deep --strict "$app"
           spctl --assess --type execute "$app"
           xcrun stapler validate "$app"
-          xcrun stapler validate src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          for image in src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg; do
+            codesign --verify --strict "$image"
+            receipt="$RUNNER_TEMP/forma-dmg-notarization.json"
+            xcrun notarytool submit "$image" --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait --output-format json > "$receipt"
+            python3 -c 'import json, sys; status = json.load(open(sys.argv[1]))["status"]; sys.exit(0 if status == "Accepted" else "Apple rejected DMG notarization")' "$receipt"
+            xcrun stapler staple "$image"
+            xcrun stapler validate "$image"
+          done
       - name: Build Linux release installers
         if: inputs.trusted-signing && runner.os == 'Linux'
         run: pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
