@@ -61,9 +61,9 @@ pub(crate) fn executable(path: &Path) -> Result<PathBuf> {
             .map_err(|_| error("Cannot inspect executable."))?
             .permissions()
             .mode();
-        if mode & 0o111 == 0 || mode & 0o022 != 0 {
+        if mode & 0o111 == 0 || mode & 0o6022 != 0 {
             return Err(error(
-                "Executable must be executable and must not be group/world writable.",
+                "Executable must be executable, not group/world writable, and have no setuid/setgid bits.",
             ));
         }
     }

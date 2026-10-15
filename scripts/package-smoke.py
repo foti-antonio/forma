@@ -6,6 +6,8 @@ macOS mounts a DMG and copies its app. A running process plus a valid database
 proves initialization only, never interactive installer or rendering correctness.
 """
 import argparse
+from datetime import datetime, timezone
+import platform
 from contextlib import closing
 import os
 import plistlib
@@ -25,6 +27,8 @@ parser.add_argument('--ui', action='store_true', help='Use public accessibility 
 parser.add_argument('--install-deb', action='store_true', help='Install/remove DEB only on a fresh ephemeral GitHub-hosted Linux runner')
 args = parser.parse_args()
 bundle = args.bundle.resolve()
+started = datetime.now(timezone.utc).isoformat()
+print(f'Host: {platform.platform()} / {platform.machine()}; started {started}', flush=True)
 package_format = args.format or ('nsis' if sys.platform == 'win32' else 'dmg' if sys.platform == 'darwin' else 'deb')
 if args.install_deb and (not sys.platform.startswith('linux') or package_format != 'deb'):
     parser.error('--install-deb requires Linux and DEB format')
@@ -212,6 +216,19 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
             assert not executable.exists(), 'Uninstall retained executable'
             assert database.exists(), 'Uninstall removed persistent data'
     finally:
+        if os.environ.get('GITHUB_ACTIONS') == 'true':
+            evidence = Path(os.environ['GITHUB_WORKSPACE']) / 'package-evidence' / package_format
+            evidence.mkdir(parents=True, exist_ok=True)
+            for path in root.glob('*.log'):
+                # Only sample package-run logs; never copy databases, backups or cores.
+                shutil.copy2(path, evidence / path.name)
+            (evidence / 'host.txt').write_text(f'{platform.platform()} / {platform.machine()}\nStarted {started}\n')
+            if sys.platform.startswith('linux'):
+                with (evidence / 'journal.log').open('w') as output:
+                    subprocess.run(['journalctl', '--since', started, '--no-pager'], stdout=output, stderr=subprocess.STDOUT, timeout=30)
+                journal = (evidence / 'journal.log').read_text()
+                if 'dumped core' in journal and ('WebKit' in journal or 'forma' in journal):
+                    raise RuntimeError('Native crash metadata observed; inspect package-evidence journal')
         if sys.platform == 'win32' and data.exists():
             # Only reached after the fresh hosted directory precondition passed.
             shutil.rmtree(data)

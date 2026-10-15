@@ -25,7 +25,7 @@ vulnerability could still cross these boundaries; keep dependencies patched.
 
 Selecting a trusted executable authorizes bounded help/version execution. Native
 canonical path and SHA-256 identity are stored and rechecked; changes require
-reauthorization. Unix group/world-writable files and Windows shell wrappers are
+reauthorization. Unix setuid/setgid and group/world-writable files and Windows shell wrappers are
 rejected. This establishes selected-file identity, not software publisher trust.
 Same-user filesystem races cannot be eliminated by hashing alone.
 
