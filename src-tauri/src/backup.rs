@@ -16,13 +16,19 @@ fn copy(source: &Connection, destination: &mut Connection) -> Result<()> {
 }
 fn validate(conn: &Connection) -> Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
-    if version != 3 {
+    if version != 3 && version != 4 {
         return Err(AppError::validation(
             "Backup schema is not supported by this Forma version.",
         ));
     }
     // Compare the full released schema, rejecting extra triggers/views and missing constraints.
-    let reference = Repository::open(Path::new(":memory:"))?;
+    let reference = Connection::open_in_memory()?;
+    reference.execute_batch(include_str!("../migrations/001_initial.sql"))?;
+    reference.execute_batch(include_str!("../migrations/002_issues.sql"))?;
+    reference.execute_batch(include_str!("../migrations/003_productivity.sql"))?;
+    if version == 4 {
+        reference.execute_batch(include_str!("../migrations/004_git.sql"))?;
+    }
     fn schema(c: &Connection) -> Result<Vec<(String, String)>> {
         Ok(c.prepare(
             "SELECT name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name",
@@ -30,7 +36,7 @@ fn validate(conn: &Connection) -> Result<()> {
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
         .collect::<std::result::Result<_, _>>()?)
     }
-    if schema(conn)? != schema(&reference.conn)? {
+    if schema(conn)? != schema(&reference)? {
         return Err(AppError::validation(
             "Backup schema does not match the supported Forma format.",
         ));
@@ -40,7 +46,7 @@ fn validate(conn: &Connection) -> Result<()> {
         [],
         |r| r.get(0),
     )?;
-    if format != 1 {
+    if format != (if version == 3 { 1 } else { 2 }) {
         return Err(AppError::validation("Unsupported backup format version."));
     }
     let integrity: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
@@ -74,7 +80,7 @@ impl Service {
         let staging = tempfile::NamedTempFile::new_in(parent).map_err(io)?;
         let mut destination = Connection::open(staging.path())?;
         copy(&self.repo.conn, &mut destination)?;
-        destination.execute("INSERT OR REPLACE INTO backup_metadata(singleton,format_version,created_at) VALUES(1,1,?1)", [chrono::Utc::now().to_rfc3339()])?;
+        destination.execute("INSERT OR REPLACE INTO backup_metadata(singleton,format_version,created_at) VALUES(1,2,?1)", [chrono::Utc::now().to_rfc3339()])?;
         destination.pragma_update(None, "journal_mode", "DELETE")?;
         validate(&destination)?;
         destination.close().map_err(|(_, e)| AppError::from(e))?;
@@ -93,6 +99,17 @@ impl Service {
         let mut destination = Connection::open(staging.path())?;
         copy(&source, &mut destination)?;
         destination.pragma_update(None, "journal_mode", "DELETE")?;
+        let version: i64 = destination.pragma_query_value(None, "user_version", |r| r.get(0))?;
+        if version == 3 {
+            let tx = destination.transaction()?;
+            tx.execute_batch(include_str!("../migrations/004_git.sql"))?;
+            tx.pragma_update(None, "user_version", 4)?;
+            tx.execute("UPDATE backup_metadata SET format_version=2", [])?;
+            tx.commit()?;
+        }
+        // Paths in imported data never authorize filesystem access, even when a
+        // malicious backup sets trusted=1. Only native folder selection reauthorizes.
+        destination.execute("UPDATE git_repositories SET trusted=0", [])?;
         validate(&destination)?;
         drop(destination);
         self.pending_restore = Some(staging);

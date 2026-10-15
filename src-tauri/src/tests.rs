@@ -112,7 +112,7 @@ fn migration_is_versioned_idempotent_and_enforces_foreign_keys() {
     assert_eq!(
         conn.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
             .unwrap(),
-        3
+        4
     );
     assert_eq!(
         conn.pragma_query_value(None, "foreign_keys", |r| r.get::<_, i64>(0))

@@ -256,3 +256,77 @@ pub struct ActivityPage {
     pub events: Vec<Activity>,
     pub total: i64,
 }
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GitRepository {
+    pub id: String,
+    pub project_id: String,
+    pub path: String,
+    pub name: String,
+    pub connected: bool,
+    pub trusted: bool,
+}
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GitCommit {
+    pub hash: String,
+    pub message: String,
+    pub author: String,
+    pub committed_at: String,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitBranch {
+    pub name: String,
+    pub active: bool,
+    pub commit: GitCommit,
+}
+#[derive(Debug, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct GitStatus {
+    pub modified: usize,
+    pub added: usize,
+    pub deleted: usize,
+    pub untracked: usize,
+    pub conflicted: usize,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitOverview {
+    pub branch: String,
+    pub bare: bool,
+    pub status: Option<GitStatus>,
+    pub commits: Vec<GitCommit>,
+    pub has_more: bool,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitBranchPage {
+    pub branches: Vec<GitBranch>,
+    pub has_more: bool,
+    pub truncated: bool,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitLink {
+    pub id: String,
+    pub repository_id: String,
+    pub repository_name: String,
+    pub repository_path: String,
+    pub connected: bool,
+    pub kind: String,
+    pub target: String,
+    pub commit: GitCommit,
+    pub created_at: String,
+}
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GitLinkInput {
+    pub project_id: String,
+    pub issue_id: String,
+    pub repository_id: String,
+    pub kind: String,
+    pub target: String,
+    pub confirmed: bool,
+}

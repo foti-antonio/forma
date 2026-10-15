@@ -12,7 +12,7 @@ impl Repository {
         conn.pragma_update(None, "foreign_keys", "ON")?;
         conn.pragma_update(None, "journal_mode", "WAL")?;
         let version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        if version > 3 {
+        if version > 4 {
             return Err(AppError {
                 code: "migration",
                 message: "This database was created by a newer Forma version. Please update Forma."
@@ -35,6 +35,12 @@ impl Repository {
             let tx = conn.transaction()?;
             tx.execute_batch(include_str!("../migrations/003_productivity.sql"))?;
             tx.pragma_update(None, "user_version", 3)?;
+            tx.commit()?;
+        }
+        if version < 4 {
+            let tx = conn.transaction()?;
+            tx.execute_batch(include_str!("../migrations/004_git.sql"))?;
+            tx.pragma_update(None, "user_version", 4)?;
             tx.commit()?;
         }
         Ok(Self { conn })

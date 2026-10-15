@@ -129,6 +129,72 @@ fn production_ipc_contract_issue_label_subtask_activity_and_restart() {
         json!({"projectId":project,"id":key,"archived":false}),
     )
     .unwrap();
+    // The native picker itself is exercised by the opt-in graphical smoke. Seed
+    // its Rust-only result here, then exercise every read/link through IPC.
+    let root = d.path().join("repo");
+    let git = git2::Repository::init(&root).unwrap();
+    let tree_id = git.index().unwrap().write_tree().unwrap();
+    let tree = git.find_tree(tree_id).unwrap();
+    let sig = git2::Signature::now("IPC author", "ipc@example.test").unwrap();
+    let oid = git
+        .commit(Some("HEAD"), &sig, &sig, "Fix F1-1", &tree, &[])
+        .unwrap();
+    git.branch("feature/F1-1", &git.find_commit(oid).unwrap(), false)
+        .unwrap();
+    use tauri::Manager;
+    let repository = app
+        .state::<std::sync::Mutex<Service>>()
+        .lock()
+        .unwrap()
+        .git_connect(project, &root)
+        .unwrap();
+    assert_eq!(
+        invoke(&w, "git_connection", json!({"projectId":project})).unwrap()["id"],
+        repository.id
+    );
+    assert_eq!(
+        invoke(
+            &w,
+            "git_overview",
+            json!({"projectId":project,"repositoryId":repository.id,"offset":0,"limit":20})
+        )
+        .unwrap()["commits"][0]["hash"],
+        oid.to_string()
+    );
+    assert_eq!(invoke(&w,"git_branches",json!({"projectId":project,"repositoryId":repository.id,"search":"F1-1","offset":0,"limit":25})).unwrap()["branches"][0]["name"],"feature/F1-1");
+    let mut link = json!({"projectId":project,"issueId":key,"repositoryId":repository.id,"kind":"branch","target":"feature/F1-1","confirmed":false});
+    assert_eq!(
+        invoke(&w, "git_link", json!({"input":link})).unwrap_err()["code"],
+        "validation"
+    );
+    link["confirmed"] = json!(true);
+    let links = invoke(&w, "git_link", json!({"input":link})).unwrap();
+    assert_eq!(links[0]["target"], "feature/F1-1");
+    assert_eq!(
+        invoke(&w, "git_links", json!({"projectId":project,"issueId":key}))
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    let check = Service::open(&path).unwrap();
+    assert_eq!(check.git_links(project, key).unwrap().len(), 1);
+    invoke(&w, "git_disconnect", json!({"projectId":project})).unwrap();
+    assert!(invoke(&w, "git_connection", json!({"projectId":project}))
+        .unwrap()
+        .is_null());
+    assert_eq!(
+        invoke(&w, "git_links", json!({"projectId":project,"issueId":key})).unwrap()[0]
+            ["connected"],
+        false
+    );
+    invoke(
+        &w,
+        "git_unlink",
+        json!({"projectId":project,"issueId":key,"linkId":links[0]["id"]}),
+    )
+    .unwrap();
     // Reopen a separate connection after all IPC writes have committed.
     let reopened = Service::open(&path).unwrap();
     let saved = reopened.issue(project, key).unwrap();

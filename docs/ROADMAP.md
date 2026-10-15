@@ -27,17 +27,25 @@ preserves M01/M02 data. Representative 10k-issue measurements justify a board
 ordering index and query improvements. See M03.md for actual test, performance
 and platform evidence and BACKUP.md for compatibility/recovery.
 
-## M04 — Recommended
+## M04 — Local Git integration
 
-1. Exercise Windows and both macOS native file dialogs, installer/launch behavior,
-   signing and notarization. Maintain the hosted matrix exercised for M03; build
-   results and interactive runtime verification are separate gates.
-2. Measure larger/real datasets; evaluate FTS for literal search, cursor paging,
-   cancellation and dedicated database workers using measured needs.
-3. Add richer Markdown, bulk operations, multiple label selection and optional
-   generated IPC contracts after the standalone workflow is stable.
-4. Design forward backup migrations and a backup retention UI. Current format
-   accepts only the explicitly supported schema; encryption needs a separate
-   threat model and key-management design.
+Implemented native-folder repository connection, read-only local libgit2 status,
+branch search and bounded commit history. Issues support confirmed branch/commit
+associations, exact-identifier suggestions and historical snapshots surviving
+branch deletion, disconnect and restart. Append-only migration 004 and backup
+format 2 preserve prior data; M03 exports upgrade in private staging and restored
+paths require explicit folder selection before access. See [GIT](GIT.md) and
+[M04](../M04.md) for design, actual checks and platform limits.
 
-Cloud sync, authentication and AI agents remain outside M03.
+## M05 — Recommendations
+
+1. Exercise native Windows and both macOS architectures interactively, including
+   Git folder selection, worktrees, missing paths, installers and signing.
+2. Measure larger real repositories; use evidence to add cancellation, independent
+   Git workers, cursor history and status scan resource limits.
+3. Consider richer issue Git navigation, historical repository management and
+   generated IPC contracts. Any write/network Git requires a separate design.
+4. Evaluate FTS, bulk operations, richer Markdown, backup retention and encryption
+   with a deliberate key-management model.
+
+Cloud sync, authentication and AI agents remain outside M04.

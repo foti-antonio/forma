@@ -2,9 +2,8 @@
 
 A local-first desktop project manager for developers. Fast, quiet, and yours.
 
-M03 adds a keyboard-accessible Kanban board, persistent ordering, combined issue
-filters, and native local backup/restore to the workspace, project and issue
-workflows from M01/M02. SQLite stores your data and preferences. No account or
+M04 adds local Git repository inspection and confirmed branch/commit links to
+issues, alongside the Kanban, filters and native backup/restore from M01–M03. SQLite stores your data and preferences. No account or
 server is required; authentication, cloud sync and AI agents remain out of scope.
 
 ## Develop
@@ -72,6 +71,14 @@ children as top-level issues. Unsaved edits require confirmation before discard;
 failed saves retain form data. Project archive actions stay on project cards;
 workspace rename/deletion remains at the bottom of the sidebar. Deletions require
 confirmation. See [issue rules](docs/ISSUES.md) for numbering and hierarchy.
+
+Expand **Git repository** in project details to connect an existing folder using
+its native picker. Inspect working-tree counts, search local branches, page
+commits and refresh manually. Expand **Git activity** in a saved issue to review
+and confirm branch/commit links, including exact-identifier suggestions. One
+repository is active per project; historical links survive disconnects and
+restarts. Forma’s Git access is read-only and offline. Restored repository paths
+require selecting the folder again. See [GIT](docs/GIT.md) for scope and limits.
 
 `pnpm dev` starts only Vite for frontend development. It intentionally displays a
 desktop-required error in a regular browser; it does not simulate persistence.
@@ -155,6 +162,6 @@ projects, issues, labels and activity.
 
 Read [ARCHITECTURE](docs/ARCHITECTURE.md), [ROADMAP](docs/ROADMAP.md),
 [CONTRIBUTING](CONTRIBUTING.md), [SECURITY](SECURITY.md), and the actual validation
-record in [M01](M01.md) and [M02](M02.md) and [M03](M03.md).
+record in [M01](M01.md) and [M02](M02.md) and [M03](M03.md) and [M04](M04.md).
 
 Licensed under [Apache-2.0](LICENSE).

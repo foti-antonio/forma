@@ -12,6 +12,7 @@ import type {
 import { useIssueStore, issueDetails, emptyPage } from './store';
 import { defaultQuery, priorities, statuses } from './options';
 import { MarkdownPreview } from './Markdown';
+import { IssueGitActivity } from '../git/IssueGitActivity';
 
 function Related({
   issue,
@@ -583,6 +584,11 @@ export function IssueEditor({
               Save or discard your changes before opening subtasks or archiving.
             </p>
           )}
+          <IssueGitActivity
+            key={issue.id}
+            issue={issue}
+            disabled={busy || dirty}
+          />
           <Related
             issue={issue}
             onOpen={onOpen}

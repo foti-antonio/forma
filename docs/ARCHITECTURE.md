@@ -39,7 +39,7 @@ a transaction and sets its schema version. Migration 002 upgrades issues, alloca
 keys, backfills per-project numbers deterministically, and adds relationship
 constraints and activity lookup indexes. Each migration and its version update
 commit together. Startup skips applied versions and rejects schemas newer than
-version 3. Migration 003 adds project view state, backup format metadata, nullable appearance
+version 4. Migration 003 adds project view state, backup format metadata, nullable appearance
 state (null imports the M02 preference), and a measured board-order index.
 Migrations 001 and 002 are unchanged; tests upgrade populated v1 fixtures and
 verify that a failed upgrade rolls back and can be retried.
@@ -140,7 +140,7 @@ issue; null appends. Hidden filtered cards retain relative order. Failed moves
 roll back and refresh; no optimistic arrays need reconciliation.
 
 SQLite’s backup API exports the entire database into a temporary file, marks
-format v1, validates it, synchronizes the file and persists it at the native
+format v2, validates it, synchronizes the file and persists it at the native
 selection. Restore validates full schema SQL, format/schema versions, integrity
 and foreign keys in a pinned read transaction, then snapshots to private staging.
 Confirmation creates a recoverable snapshot of current data and uses SQLite’s
@@ -155,3 +155,26 @@ sort. Empty search avoids lowercasing descriptions. Materialized ranking joined
 with UPDATE FROM avoids repeated correlated scans during normalization.
 Literal substring searches remain linear; no speculative search/index rewrite
 was introduced. See M03.md for actual timings and measurement conditions.
+
+## M04 local Git
+
+The Git feature store and detail coordinator use typed Git IPC. All Git commands
+run on blocking workers with an owned Tauri handle, taking the same service mutex
+as SQLite. `git_service.rs` validates scopes and target inputs,
+`git_repository.rs` owns parameterized association SQL, and `git_engine.rs` reads
+local libgit2 repositories without a subprocess or remote transport. No new Tauri
+permissions or plugins were added. Read-only status disables index updates.
+
+Migration 004 adds repository records and immutable issue-link snapshots, with
+one active repository per project, composite repository/project foreign keys and
+issue-scope triggers. Disconnect retains provenance. Normal restarts retain
+connections and links. Restore clears path authorization in private staging;
+only native folder selection can reauthorize a restored path. Format 2/schema 4
+exports include Git metadata. Exact-schema format 1/schema 3 snapshots upgrade
+in staging, preserving the existing recovery and confirmation boundaries.
+
+Git UI sections load only when expanded. There is no polling. Branch/history
+requests and retained arrays are bounded; full status scans remain proportional
+to working-tree size and can delay database access while holding the mutex.
+See [GIT](GIT.md) for count semantics, historical branch policy and security
+boundaries, and [M04](../M04.md) for actual verification and timings.

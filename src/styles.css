@@ -1286,3 +1286,49 @@ textarea {
   overflow-wrap: anywhere;
   margin: 0.2rem 0;
 }
+
+.project-git {
+  margin-block: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+}
+.project-git summary,
+.issue-related summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding-block: 0.5rem;
+}
+.git-panel {
+  margin-top: 0.75rem;
+}
+.git-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+.git-path,
+.git-target,
+.git-message {
+  overflow-wrap: anywhere;
+  unicode-bidi: plaintext;
+}
+.git-message {
+  white-space: pre-wrap;
+  margin-block: 0.4rem;
+}
+.git-commit {
+  min-width: 0;
+  font-size: 0.85rem;
+}
+.git-commit time {
+  font-size: 0.75rem;
+}
+.git-panel .activity-row {
+  align-items: flex-start;
+}
+@media (max-width: 950px) {
+  .git-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

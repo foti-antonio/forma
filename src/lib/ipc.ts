@@ -57,6 +57,37 @@ async function command<T>(
   return invoke<T>(name, args);
 }
 export const api = {
+  gitConnection: (projectId: string) =>
+    command<GitRepository | null>('git_connection', { projectId }),
+  gitConnect: (projectId: string) =>
+    command<GitRepository | null>('git_connect', { projectId }),
+  gitDisconnect: (projectId: string) =>
+    command<void>('git_disconnect', { projectId }),
+  gitOverview: (projectId: string, repositoryId: string, offset = 0) =>
+    command<GitOverview>('git_overview', {
+      projectId,
+      repositoryId,
+      offset,
+      limit: 20,
+    }),
+  gitBranches: (
+    projectId: string,
+    repositoryId: string,
+    search = '',
+    offset = 0,
+  ) =>
+    command<GitBranchPage>('git_branches', {
+      projectId,
+      repositoryId,
+      search,
+      offset,
+      limit: 25,
+    }),
+  gitLinks: (projectId: string, issueId: string) =>
+    command<GitLink[]>('git_links', { projectId, issueId }),
+  gitLink: (input: GitLinkInput) => command<GitLink[]>('git_link', { input }),
+  gitUnlink: (projectId: string, issueId: string, linkId: string) =>
+    command<GitLink[]>('git_unlink', { projectId, issueId, linkId }),
   setTheme: (theme: 'light' | 'dark' | 'system') =>
     command<Snapshot>('set_theme', { theme }),
   projectView: (projectId: string) =>
@@ -176,4 +207,61 @@ export interface Activity {
 export interface ActivityPage {
   events: Activity[];
   total: number;
+}
+
+export interface GitRepository {
+  id: string;
+  projectId: string;
+  name: string;
+  path: string;
+  connected: boolean;
+  trusted: boolean;
+}
+export interface GitCommit {
+  hash: string;
+  message: string;
+  author: string;
+  committedAt: string;
+}
+export interface GitBranch {
+  name: string;
+  active: boolean;
+  commit: GitCommit;
+}
+export interface GitOverview {
+  branch: string;
+  bare: boolean;
+  status: {
+    modified: number;
+    added: number;
+    deleted: number;
+    untracked: number;
+    conflicted: number;
+  } | null;
+  commits: GitCommit[];
+  hasMore: boolean;
+}
+export interface GitBranchPage {
+  branches: GitBranch[];
+  hasMore: boolean;
+  truncated: boolean;
+}
+export interface GitLink {
+  id: string;
+  repositoryId: string;
+  repositoryName: string;
+  repositoryPath: string;
+  connected: boolean;
+  kind: 'branch' | 'commit';
+  target: string;
+  commit: GitCommit;
+  createdAt: string;
+}
+export interface GitLinkInput {
+  projectId: string;
+  issueId: string;
+  repositoryId: string;
+  kind: 'branch' | 'commit';
+  target: string;
+  confirmed: boolean;
 }

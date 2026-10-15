@@ -30,3 +30,9 @@ mod tests;
 
 #[cfg(all(test, feature = "ipc-tests"))]
 mod ipc_tests;
+
+mod git_engine;
+mod git_repository;
+mod git_service;
+#[cfg(test)]
+mod git_tests;

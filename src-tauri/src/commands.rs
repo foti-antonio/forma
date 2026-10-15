@@ -135,6 +135,14 @@ pub fn set_project_view(state: State<'_>, project_id: String, view: String) -> R
 pub fn handler<R: tauri::Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static
 {
     tauri::generate_handler![
+        git_connection,
+        git_connect,
+        git_disconnect,
+        git_overview,
+        git_branches,
+        git_links,
+        git_link,
+        git_unlink,
         set_theme,
         export_backup,
         prepare_restore,
@@ -207,4 +215,106 @@ pub fn cancel_restore(state: State<'_>) -> Result<()> {
 #[tauri::command]
 pub fn set_theme(state: State<'_>, theme: String) -> Result<Snapshot> {
     locked(&state)?.set_theme(&theme)
+}
+
+// Blocking workers own an app handle; no mutex guard crosses an await.
+async fn git_task<R: tauri::Runtime, T: Send + 'static>(
+    app: tauri::AppHandle<R>,
+    work: impl FnOnce(&mut Service) -> Result<T> + Send + 'static,
+) -> Result<T> {
+    use tauri::Manager;
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<Mutex<Service>>();
+        let mut service = locked(&state)?;
+        work(&mut service)
+    })
+    .await
+    .map_err(|_| AppError {
+        code: "internal",
+        message: "Git operation could not finish. Please retry.".into(),
+    })?
+}
+#[tauri::command]
+pub async fn git_connection<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    project_id: String,
+) -> Result<Option<GitRepository>> {
+    git_task(app, move |s| s.git_connection(&project_id)).await
+}
+#[tauri::command]
+pub async fn git_connect<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    project_id: String,
+) -> Result<Option<GitRepository>> {
+    let folder = rfd::AsyncFileDialog::new()
+        .set_title("Connect Git repository")
+        .pick_folder()
+        .await;
+    match folder {
+        Some(folder) => {
+            git_task(app, move |s| {
+                s.git_connect(&project_id, folder.path()).map(Some)
+            })
+            .await
+        }
+        None => Ok(None),
+    }
+}
+#[tauri::command]
+pub async fn git_disconnect<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    project_id: String,
+) -> Result<()> {
+    git_task(app, move |s| s.git_disconnect(&project_id)).await
+}
+#[tauri::command]
+pub async fn git_overview<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    project_id: String,
+    repository_id: String,
+    offset: usize,
+    limit: usize,
+) -> Result<GitOverview> {
+    git_task(app, move |s| {
+        s.git_overview(&project_id, &repository_id, offset, limit)
+    })
+    .await
+}
+#[tauri::command]
+pub async fn git_branches<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    project_id: String,
+    repository_id: String,
+    search: String,
+    offset: usize,
+    limit: usize,
+) -> Result<GitBranchPage> {
+    git_task(app, move |s| {
+        s.git_branches(&project_id, &repository_id, &search, offset, limit)
+    })
+    .await
+}
+#[tauri::command]
+pub async fn git_links<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    project_id: String,
+    issue_id: String,
+) -> Result<Vec<GitLink>> {
+    git_task(app, move |s| s.git_links(&project_id, &issue_id)).await
+}
+#[tauri::command]
+pub async fn git_link<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    input: GitLinkInput,
+) -> Result<Vec<GitLink>> {
+    git_task(app, move |s| s.git_link(input)).await
+}
+#[tauri::command]
+pub async fn git_unlink<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    project_id: String,
+    issue_id: String,
+    link_id: String,
+) -> Result<Vec<GitLink>> {
+    git_task(app, move |s| s.git_unlink(&project_id, &issue_id, &link_id)).await
 }

@@ -16,7 +16,7 @@ import tempfile
 import time
 
 binary = Path(sys.argv[1] if len(sys.argv) > 1 else "src-tauri/target/debug/forma").resolve()
-root = Path(tempfile.mkdtemp(prefix="forma-m03-smoke-"))
+root = Path(tempfile.mkdtemp(prefix="forma-m04-smoke-"))
 database = root / "data/dev.forma.desktop/forma.sqlite3"
 env = dict(os.environ, XDG_DATA_HOME=str(root / "data"),
            XDG_CONFIG_HOME=str(root / "config"), XDG_CACHE_HOME=str(root / "cache"))
@@ -175,7 +175,7 @@ try:
     keys("-k", "Return")
     visible("Edit issue")
     # WebKitGTK date controls have separate month/day/year tab stops.
-    tabs(16)
+    tabs(17)
     keys("-k", "Return")
     visible("What needs to happen")
     text("child task")
@@ -226,12 +226,12 @@ try:
     assert rows("SELECT title FROM issues WHERE parent_id IS NOT NULL") == [("child task",)]
     assert rows("PRAGMA integrity_check") == [("ok",)]
     assert rows("PRAGMA foreign_key_check") == []
-    assert rows("PRAGMA user_version") == [(3,)]
+    assert rows("PRAGMA user_version") == [(4,)]
     if "--backup" in sys.argv:
         keys("-k", "Escape")
         time.sleep(0.5)
         keys("/")
-        tabs(11, backwards=True)
+        tabs(12, backwards=True)
         native_dialog = "Export Forma backup"
         backup_path = root / "native.forma-backup"
         # One virtual keymap must cover GTK's creation and its input.
@@ -250,7 +250,7 @@ try:
         until(lambda: rows("SELECT count(*) FROM issues") == [(3,)], "post-export issue")
         time.sleep(0.7)
         keys("/")
-        tabs(10, backwards=True)
+        tabs(11, backwards=True)
         native_dialog = "Select Forma backup"
         keys("-k", "Return", "-s", "1800", "-M", "ctrl", "-k", "l", "-m", "ctrl",
              "-M", "ctrl", "-k", "a", "-m", "ctrl", "-d", "30", str(backup_path), "-k", "Return", "-s", "1200", "-k", "Return")

@@ -1,3 +1,4 @@
+import { useGitStore } from '../git/store';
 import { create } from 'zustand';
 import { api, errorMessage } from '../../lib/ipc';
 import { useAppStore } from '../../app/store';
@@ -61,6 +62,7 @@ export const useBackupStore = create<State>((set, get) => ({
     set({ busy: true, error: null });
     try {
       const recovery = await api.restoreBackup();
+      useGitStore.getState().reset();
       const issues = useIssueStore.getState();
       useIssueStore.setState({
         query: null,

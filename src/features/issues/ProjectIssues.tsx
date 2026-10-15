@@ -19,6 +19,7 @@ import { useIssueStore, issuePreferences } from './store';
 import { defaultQuery, priorities, statuses } from './options';
 import { IssueEditor } from './IssueEditor';
 import { LabelsDialog } from './LabelsDialog';
+import { GitPanel } from '../git/GitPanel';
 
 type Editor = { issue?: Issue; parent?: Issue; key: number };
 export function ProjectIssues({
@@ -30,6 +31,7 @@ export function ProjectIssues({
   onBack: () => void;
   onEdit: () => void;
 }) {
+  const [gitOpen, setGitOpen] = useState(false);
   const [view, setView] = useState<'list' | 'board'>('list');
   const viewGeneration = useRef(0);
   const [viewBusy, setViewBusy] = useState(false);
@@ -142,6 +144,14 @@ export function ProjectIssues({
           New issue
         </Button>
       </div>
+      <details
+        open={gitOpen}
+        onToggle={(e) => setGitOpen(e.currentTarget.open)}
+        className="project-git"
+      >
+        <summary>Git repository</summary>
+        {gitOpen && <GitPanel key={project.id} projectId={project.id} />}
+      </details>
       <div className="issue-summary">
         <span>
           <strong>{page.projectTotal}</strong>{' '}

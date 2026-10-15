@@ -16,7 +16,8 @@ its WAL/SHM files is rejected.
 The snapshot includes **all** workspaces, projects (including archived records),
 issue identifiers/counters, issues, parent relationships, labels, issue-label
 relationships, activity, active workspace, appearance and per-project List/Board
-preferences. SQLite sequences, indexes and triggers are preserved. In M03 the old
+preferences, repository connections and historical branch/commit issue links. Repository
+files and Git objects are not included. SQLite sequences, indexes and triggers are preserved. In M03 the old
 WebView appearance value imports into SQLite on first launch; the cache itself,
 unsaved editor drafts and transient search/filter/page state are not backed up.
 
@@ -26,28 +27,38 @@ There is no upload, telemetry, automatic cloud copy or encryption key.
 
 ## Versioned format and compatibility
 
-Format version **1** is a single ordinary SQLite database, with the usual SQLite
+Format version **2** is a single ordinary SQLite database, with the usual SQLite
 file header. It is not a ZIP or an archive and contains no paths to extract.
 
-- `PRAGMA user_version = 3`: supported Forma schema.
-- `backup_metadata`: one row with `singleton = 1`, `format_version = 1` and
+- `PRAGMA user_version = 4`: supported Forma schema.
+- `backup_metadata`: one row with `singleton = 1`, `format_version = 2` and
   an export timestamp in UTC RFC3339.
 - All tables, indexes and triggers must exactly match the supported schema SQL.
   Extra objects and changed constraints/triggers are rejected.
 - `PRAGMA integrity_check` must return `ok`; `foreign_key_check` must return
   no violations.
 
-M03 restores only format 1 / schema 3 exports. A raw M01/M02 database, a future
-schema, a changed schema or an unsupported format version is rejected without
-changing current data. Open older live databases normally to migrate them
-transactionally, then export with M03. Future backup migrations need explicit
-implementation and tests; compatibility is not assumed from a filename.
+M04 exports format 2 / schema 4 and accepts both these exports and M03 format 1 /
+schema 3 exports. Legacy exports must match the exact released schema before any
+upgrade. Rust copies a validated legacy snapshot to private staging, applies
+migration 004 transactionally and updates format metadata. M03 cannot restore
+M04 exports. A raw M01/M02 database, future schema, changed schema or unsupported
+format/schema pair is rejected without changing current data. Open older live
+databases normally to migrate, then export using this version.
+
+All imported repository paths lose authorization in private staging, even if
+`trusted=1` appears in a backup. Restore never opens a Git path or validates its
+existence. Missing paths do not block restore; historical issue links remain
+readable. Choose **Reconnect folder…** in the project Git panel and select a local
+repository through the native picker before Forma accesses it again. This also
+applies to recovery snapshots. Ordinary application restarts retain authorization.
 
 ## Restore and rollback
 
 1. Choose a backup using **Restore backup…**.
 2. Rust opens it read-only, pins a read transaction, validates versions, complete
-   schema, integrity and foreign keys, and creates a private temporary snapshot.
+   schema, integrity and foreign keys, and creates a private temporary snapshot, upgrades supported legacy data and clears
+   imported repository path authorization.
    Changes to the selected original file cannot change the staged restore.
 3. Review the explicit **Replace all local data?** confirmation. Cancel or Escape
    discards staging. Validation alone never replaces current data.
@@ -94,4 +105,6 @@ extra triggers, foreign-key damage, garbage/truncated files, active-database
 destination protection and interruption of an actual SQLite backup transaction.
 Frontend tests cover selection, confirmation, cancellation, export/restore errors
 and cache refresh. Interruption is exercised by ending a partial SQLite copy,
-rather than claiming a real power-loss test. See M03.md for actual platform runs.
+rather than claiming a real power-loss test. Git tests additionally cover M03 import/upgrade, Git links in exports, missing paths
+after restore, blocked Git access and reauthorization across restart. See M04.md
+for actual platform runs.
