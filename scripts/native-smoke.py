@@ -208,6 +208,11 @@ try:
     launch()
     tabs(5)
     keys("-k", "Return")
+    # The Git disclosure adds vertical space. Focus a board card to scroll it
+    # into view before OCR instead of assuming it appears in the initial viewport.
+    keys("/")
+    tabs(14)
+    tabs(1, backwards=True)  # Keep focus off the title so OCR can read it.
     visible("child task")
     visible("Each column shows")
     assert rows("SELECT status FROM issues WHERE number=1") == [("in_progress",)]

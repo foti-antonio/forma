@@ -14,6 +14,56 @@ import subprocess
 import sys
 import tempfile
 import time
+import gi
+gi.require_version("Atspi", "2.0")
+from gi.repository import Atspi, GLib
+
+
+def descendants(node):
+    if node is None:
+        return
+    yield node
+    for index in range(node.get_child_count()):
+        yield from descendants(node.get_child_at_index(index))
+
+
+def portal_nodes():
+    context = GLib.MainContext.default()
+    while context.pending():
+        context.iteration(False)
+    desktop = Atspi.get_desktop(0)
+    for index in range(desktop.get_child_count()):
+        app = desktop.get_child_at_index(index)
+        if app and app.get_name() == "xdg-desktop-portal-gtk":
+            for node in descendants(app):
+                if node.get_name() == "Connect Git repository" and node.get_role_name() == "file chooser" and node.get_state_set().contains(Atspi.StateType.SHOWING):
+                    return list(descendants(node))
+    return []
+
+
+def pick_folder(path):
+    # Use GTK's public accessibility interface for the location entry and accept
+    # button; wtype's virtual keymap is unreliable across this portal transition.
+    keys("-k", "Return")
+    until(lambda: active().get("title") == "Connect Git repository", "folder picker")
+    keys("-d", "30", "/")
+    def location_entry():
+        return next((n for n in portal_nodes() if n.get_role_name() == "text" and n.get_state_set().contains(Atspi.StateType.SHOWING)), None)
+    until(lambda: location_entry() is not None, "focused native location entry")
+    entry = location_entry()
+    Atspi.EditableText.set_text_contents(entry, str(path))
+    Atspi.Action.do_action(entry, 0)
+    def accept():
+        if active().get("pid") == process.pid:
+            return True
+        if not focused():
+            raise RuntimeError("Lost focus before native folder acceptance")
+        for node in portal_nodes():
+            if node.get_role_name() == "button" and node.get_name() == "Select" and node.get_state_set().contains(Atspi.StateType.ENABLED):
+                Atspi.Action.do_action(node, 0)
+                return True
+        return False
+    until(accept, "enabled native Select button")
 
 binary = Path(sys.argv[1] if len(sys.argv) > 1 else "src-tauri/target/debug/forma").resolve()
 root = Path(tempfile.mkdtemp(prefix="forma-m04-git-smoke-"))
@@ -131,6 +181,7 @@ subprocess.run(["git", "init", "-b", "main", str(repo)], check=True, stdout=subp
 for args in [["add", "tracked"], ["-c", "user.name=Smoke Author", "-c", "user.email=smoke@example.test", "commit", "-m", "Fix F1-1"], ["branch", "feature/F1-1-work"]]:
     subprocess.run(["git", "-C", str(repo), *args], check=True, stdout=subprocess.DEVNULL)
 (repo / "untracked").write_text("new\n")
+all_before = {str(p.relative_to(repo)): p.read_bytes() for p in repo.rglob("*") if p.is_file()}
 index_before = (repo / ".git/index").read_bytes()
 head_before = (repo / ".git/HEAD").read_bytes()
 try:
@@ -163,8 +214,7 @@ try:
     keys("-k", "Return")
     tabs(1)
     native_dialog = "Connect Git repository"
-    keys("-k", "Return", "-s", "1800", "-M", "ctrl", "-k", "l", "-m", "ctrl",
-         "-M", "ctrl", "-k", "a", "-m", "ctrl", "-s", "300", "-d", "30", str(repo), "-s", "500", "-M", "alt", "-k", "s", "-m", "alt")
+    pick_folder(repo)
     screenshot("folder-result")
     until(lambda: bool(rows("SELECT id FROM git_repositories WHERE connected=1")), "native Git connection")
     until(lambda: active().get("pid") == process.pid, "return from folder picker")
@@ -177,13 +227,13 @@ try:
     tabs(14)
     keys("-k", "Return")
     visible("Edit issue")
-    tabs(16)
+    tabs(15)
     keys("-k", "Return")
     time.sleep(.8)
     tabs(2)
     keys("-k", "Return")
     assert rows("SELECT count(*) FROM git_links") == [(0,)]
-    tabs(6)
+    tabs(5)
     screenshot("branch-confirmation")
     keys("-k", "Return")
     until(lambda: rows("SELECT count(*) FROM git_links") == [(1,)], "confirmed branch association")
@@ -194,12 +244,12 @@ try:
     tabs(14)
     keys("-k", "Return")
     visible("Edit issue")
-    tabs(16)
+    tabs(15)
     keys("-k", "Return")
     time.sleep(.8)
     tabs(4)
     keys("-k", "Return")
-    tabs(5)
+    tabs(4)
     keys("-k", "Return")
     until(lambda: rows("SELECT count(*) FROM git_links") == [(2,)], "confirmed commit association")
     keys("-k", "Escape")
@@ -214,7 +264,7 @@ try:
     tabs(14)
     keys("-k", "Return")
     visible("Edit issue")
-    tabs(16)
+    tabs(15)
     keys("-k", "Return")
     time.sleep(.8)
     tabs(2)
@@ -222,6 +272,7 @@ try:
     assert rows("SELECT kind FROM git_links ORDER BY kind") == [("branch",), ("commit",)]
     assert rows("PRAGMA integrity_check") == [("ok",)]
     assert rows("PRAGMA foreign_key_check") == []
+    assert {str(p.relative_to(repo)): p.read_bytes() for p in repo.rglob("*") if p.is_file()} == all_before
     assert (repo / ".git/index").read_bytes() == index_before
     assert (repo / ".git/HEAD").read_bytes() == head_before
     assert (repo / "tracked").read_text() == "original\n"

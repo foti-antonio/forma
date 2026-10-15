@@ -85,6 +85,34 @@ fn input(p: &str, i: &Issue, r: &GitRepository, kind: &str, target: &str) -> Git
         confirmed: true,
     }
 }
+fn repository_bytes(
+    root: &Path,
+) -> std::collections::BTreeMap<std::path::PathBuf, Option<Vec<u8>>> {
+    fn collect(
+        root: &Path,
+        current: &Path,
+        output: &mut std::collections::BTreeMap<std::path::PathBuf, Option<Vec<u8>>>,
+    ) {
+        for entry in std::fs::read_dir(current).unwrap() {
+            let path = entry.unwrap().path();
+            let is_dir = path.is_dir();
+            output.insert(
+                path.strip_prefix(root).unwrap().to_owned(),
+                if is_dir {
+                    None
+                } else {
+                    Some(std::fs::read(&path).unwrap())
+                },
+            );
+            if is_dir {
+                collect(root, &path, output);
+            }
+        }
+    }
+    let mut result = std::collections::BTreeMap::new();
+    collect(root, root, &mut result);
+    result
+}
 #[test]
 fn repository_validation_status_history_branches_and_no_writes() {
     let (dir, mut s, p, _) = setup();
@@ -102,6 +130,7 @@ fn repository_validation_status_history_branches_and_no_writes() {
     let mut index = repo.index().unwrap();
     index.add_path(Path::new("added")).unwrap();
     index.write().unwrap();
+    let all_before = repository_bytes(&root);
     let index_before = std::fs::read(repo.path().join("index")).unwrap();
     let config_before = std::fs::read(repo.path().join("config")).unwrap();
     let head_before = std::fs::read(repo.path().join("HEAD")).unwrap();
@@ -148,6 +177,7 @@ fn repository_validation_status_history_branches_and_no_writes() {
         "changed"
     );
     assert!(!repo.path().join("index.lock").exists());
+    assert_eq!(repository_bytes(&root), all_before);
     // NO_SEARCH does not accidentally connect a parent repository.
     std::fs::create_dir(root.join("nested")).unwrap();
     assert!(s.git_connect(&p, &root.join("nested")).is_err());

@@ -115,6 +115,12 @@ native file dialogs, explicit replacement confirmation, recovery and frontend
 refresh. Input is restricted to Forma and its specifically named GTK portal
 dialogs; grouped keyboard sequences preserve GTK’s virtual keymap. This
 desktop-specific smoke is opt-in, not a headless CI test.
+Run `python3 scripts/native-git-smoke.py src-tauri/target/debug/forma` for a separate
+real-repository flow covering native folder connection, confirmed branch/commit
+links and restart persistence. It additionally requires Python GObject bindings
+and the AT-SPI typelib (Arch: `python-gobject` / `at-spi2-core`) to drive GTK’s
+native picker through its public accessibility interface. Both scripts check
+focus before sending input and use isolated temporary data.
 
 Vitest disables Node's experimental global Web Storage so jsdom provides the
 browser storage implementation, including on Node 26.
