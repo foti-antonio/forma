@@ -242,7 +242,8 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
             assert database.exists(), 'Uninstall removed persistent data'
     finally:
         if os.environ.get('GITHUB_ACTIONS') == 'true':
-            evidence = Path(os.environ['GITHUB_WORKSPACE']) / 'package-evidence' / package_format
+            scope = f'{package_format}-upgrade' if args.upgrade_from else package_format
+            evidence = Path(os.environ['GITHUB_WORKSPACE']) / 'package-evidence' / scope
             evidence.mkdir(parents=True, exist_ok=True)
             for path in root.glob('*.log'):
                 # Only sample package-run logs; never copy databases, backups or cores.
