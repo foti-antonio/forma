@@ -47,6 +47,7 @@ export function Board({ onOpen }: { onOpen: (issue: Issue) => void }) {
   ) => {
     if (moving.current || busy || loading) return;
     moving.current = true;
+    const focusBeforeMove = document.activeElement;
     announce('');
     const result = await moveBoardIssue(issue, status, before, after);
     announce(
@@ -57,6 +58,12 @@ export function Board({ onOpen }: { onOpen: (issue: Issue) => void }) {
     moving.current = false;
     // Restore card focus after the canonical refresh, or the column when filtered out.
     requestAnimationFrame(() => {
+      // A later user action owns focus even if this frame was delayed.
+      if (
+        document.activeElement !== focusBeforeMove &&
+        document.activeElement !== document.body
+      )
+        return;
       (
         document.getElementById('card-' + issue.id) ??
         document.getElementById('column-' + status)

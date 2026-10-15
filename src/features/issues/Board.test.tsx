@@ -179,6 +179,33 @@ it('rejects overlapping moves and refreshes canonical data after a failed move',
     'Task 1',
   );
 });
+it('does not steal focus when another card is focused before the restoration frame', async () => {
+  render(<Board onOpen={vi.fn()} />);
+  const frames: FrameRequestCallback[] = [];
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+    frames.push(callback);
+    return frames.length;
+  });
+  const moved = screen.getByRole('button', { name: 'Task 2' });
+  moved.focus();
+  fireEvent.keyDown(moved, { key: 'ArrowUp', altKey: true });
+  await screen.findByText('F1-2 moved to Todo.');
+  await waitFor(() => expect(frames.length).toBeGreaterThan(0));
+  const next = screen.getByRole('button', { name: 'Task 1' });
+  next.focus();
+  frames.forEach((callback) => callback(performance.now()));
+  expect(document.activeElement).toBe(next);
+  fireEvent.keyDown(next, { key: 'ArrowRight', altKey: true });
+  await waitFor(() =>
+    expect(api.moveIssue).toHaveBeenLastCalledWith(
+      'p',
+      '1',
+      'in_progress',
+      null,
+      false,
+    ),
+  );
+});
 it('shares combined filters across Board and List and bounds every column page', async () => {
   const user = userEvent.setup();
   render(<ProjectIssues project={project} onBack={vi.fn()} onEdit={vi.fn()} />);
