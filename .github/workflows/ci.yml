@@ -3,7 +3,12 @@ on:
   push:
     branches: [main, 'milestone/**']
   pull_request:
+  workflow_dispatch:
   workflow_call:
+    inputs:
+      trusted-signing:
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -22,6 +27,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      - run: node scripts/release-version.mjs
+      - run: python3 -m unittest discover -s scripts -p 'test_release*.py'
   rust:
     runs-on: ubuntu-24.04
     steps:
@@ -53,6 +60,7 @@ jobs:
           - os: macos-15
             target: aarch64-apple-darwin
             bundles: app,dmg
+    environment: ${{ inputs.trusted-signing && 'release-signing' || '' }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -81,17 +89,104 @@ jobs:
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - run: cargo test --locked --manifest-path src-tauri/Cargo.toml --features ipc-tests
       - run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-features --all-targets -- -D warnings
-      - run: pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+      - name: Build unsigned review candidate
+        if: ${{ !inputs.trusted-signing }}
+        run: pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
         env:
           APPLE_SIGNING_IDENTITY: '-'
+      - name: Import Windows signing certificate
+        if: inputs.trusted-signing && runner.os == 'Windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if (!$env:WINDOWS_CERTIFICATE -or !$env:WINDOWS_CERTIFICATE_PASSWORD) { throw 'Missing protected Windows signing credentials' }
+          $certificatePath = Join-Path $env:RUNNER_TEMP 'forma-signing.pfx'
+          try {
+            [IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+            $password = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+            $cert = Import-PfxCertificate -FilePath $certificatePath -CertStoreLocation Cert:\CurrentUser\My -Password $password
+            $config = @{ bundle = @{ windows = @{ certificateThumbprint = $cert.Thumbprint; digestAlgorithm = 'sha256'; timestampUrl = 'http://timestamp.digicert.com' } } }
+            $config | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $env:RUNNER_TEMP 'forma-signing.json')
+          } finally { Remove-Item $certificatePath -Force -ErrorAction SilentlyContinue }
+      - name: Build signed Windows installers
+        if: inputs.trusted-signing && runner.os == 'Windows'
+        shell: pwsh
+        run: pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --config "$env:RUNNER_TEMP/forma-signing.json"
+      - name: Verify Windows trust
+        if: inputs.trusted-signing && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem 'src-tauri/target/${{ matrix.target }}/release/bundle' -Recurse -File | Where-Object { $_.Extension -in '.exe', '.msi' }
+          if ($files.Count -ne 2) { throw 'Expected NSIS and MSI' }
+          foreach ($file in $files) {
+            if ((Get-AuthenticodeSignature $file.FullName).Status -ne 'Valid') { throw 'Installer signature is not trusted' }
+          }
+      - name: Build Developer ID signed and notarized macOS bundles
+        if: inputs.trusted-signing && runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -eu
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            test -n "${!name}" || { echo "Missing protected macOS signing credentials"; exit 1; }
+          done
+          case "$APPLE_SIGNING_IDENTITY" in 'Developer ID Application:'*) ;; *) echo 'Developer ID Application identity required'; exit 1;; esac
+          pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+          app="src-tauri/target/${{ matrix.target }}/release/bundle/macos/Forma.app"
+          codesign --verify --deep --strict "$app"
+          spctl --assess --type execute "$app"
+          xcrun stapler validate "$app"
+          xcrun stapler validate src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+      - name: Build Linux release installers
+        if: inputs.trusted-signing && runner.os == 'Linux'
+        run: pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
       - name: Packaged native initialization (Linux)
         if: runner.os == 'Linux'
         run: dbus-run-session -- xvfb-run -a python3 scripts/package-smoke.py src-tauri/target/${{ matrix.target }}/release/bundle
+      - name: AppImage FUSE-free initialization and restart
+        if: runner.os == 'Linux'
+        run: dbus-run-session -- xvfb-run -a python3 scripts/package-smoke.py src-tauri/target/${{ matrix.target }}/release/bundle --format appimage
+      - name: MSI install, restart and uninstall
+        if: runner.os == 'Windows'
+        run: python3 scripts/package-smoke.py src-tauri/target/${{ matrix.target }}/release/bundle --format msi
       - name: Packaged native initialization (Windows/macOS)
         if: runner.os != 'Linux'
         run: python3 scripts/package-smoke.py src-tauri/target/${{ matrix.target }}/release/bundle
+      - name: Collect architecture-specific installers and SHA-256
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          python3 scripts/release-artifacts.py collect src-tauri/target/${{ matrix.target }}/release/bundle --target ${{ matrix.target }} --output candidate --version "$version" --commit "$GITHUB_SHA"
       - uses: actions/upload-artifact@v4
         with:
           name: forma-${{ matrix.target }}
-          path: src-tauri/target/${{ matrix.target }}/release/bundle/
+          path: candidate/
+          retention-days: 30
           if-no-files-found: error
+  candidate:
+    needs: desktop
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: forma-*
+          path: candidate
+          merge-multiple: true
+      - name: Verify all six installers and create combined checksums
+        run: |
+          version=$(node -p "require('./package.json').version")
+          python3 scripts/release-artifacts.py verify candidate --version "$version" --commit "$GITHUB_SHA"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: forma-beta-candidate
+          path: candidate/
+          if-no-files-found: error
+          retention-days: 30

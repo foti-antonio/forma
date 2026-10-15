@@ -1,5 +1,5 @@
 import { IssueAgent } from '../agents/Agents';
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Dialog } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { errorMessage } from '../../lib/ipc';
@@ -12,7 +12,9 @@ import type {
 } from '../../lib/ipc';
 import { useIssueStore, issueDetails, emptyPage } from './store';
 import { defaultQuery, priorities, statuses } from './options';
-import { MarkdownPreview } from './Markdown';
+const MarkdownPreview = lazy(() =>
+  import('./Markdown').then((module) => ({ default: module.MarkdownPreview })),
+);
 import { IssueGitActivity } from '../git/IssueGitActivity';
 
 function Related({
@@ -317,7 +319,9 @@ export function IssueEditor({
             </Button>
           </div>
           {preview ? (
-            <MarkdownPreview text={input.description} />
+            <Suspense fallback={<p role="status">Loading preview…</p>}>
+              <MarkdownPreview text={input.description} />
+            </Suspense>
           ) : (
             <textarea
               id="issue-description"

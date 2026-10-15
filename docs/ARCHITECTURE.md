@@ -110,8 +110,13 @@ are not used. There is no external content, telemetry, login, or network client.
 Rust domain tests can compile with `--no-default-features`; this excludes the
 Tauri host, not the database or business logic. Desktop is the default feature.
 CI separately compiles/tests the full host on every target OS, then bundles.
-GitHub release preparation reuses CI, checks tag/version agreement, and creates
-a draft. Ordinary builds use unsigned Windows packages and ad-hoc macOS signing.
+GitHub release preparation reuses CI, checks tag/version agreement and protected
+reviewer policy, then requires trusted signing/notarization before creating an
+unpublished draft. Ordinary builds use unsigned Windows packages and ad-hoc macOS
+signing; candidate artifacts carry source/target manifests and SHA-256 checksums.
+The aggregate gate requires all six installers from the same commit and version.
+Markdown preview loads its parser only when requested; Board remains deferred.
+See RELEASING.md and M07.md for the policy and actual verification boundaries.
 
 ## Verification boundaries
 

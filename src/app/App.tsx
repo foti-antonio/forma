@@ -337,6 +337,10 @@ export default function App() {
                     <br />
                     Your data lives here, on your device.
                   </p>
+                  <p className="muted">
+                    Backups are unencrypted. AI agents are optional and need
+                    approval; their worktrees are not security sandboxes.
+                  </p>
                   <Button onClick={() => open({ kind: 'workspace' })}>
                     <Plus size={16} />
                     Create workspace

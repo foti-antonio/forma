@@ -2,11 +2,27 @@
 
 A local-first desktop project manager for developers. Fast, quiet, and yours.
 
-M06 adds explicitly launched approved task queues, a conservative one-process
-budget configurable to two, independently approved project tests and safe
-management of retained agent worktrees. Git inspection, issue links, Kanban,
-filters and native backup/restore remain available. Rust and SQLite own local
-data. No Forma account or server is required.
+Proposed first public beta: **0.1.0-beta.1** (unpublished). Forma keeps work in
+Rust-owned SQLite on your computer; no Forma account or server is required.
+
+- Workspaces, projects, issues, subtasks, labels, activity and combined filters.
+- List and Kanban views with keyboard navigation and persistent ordering.
+- Native Git repository connection, branch/commit inspection and issue links.
+- Opt-in approved Codex/Claude runs, explicit task queues, independent tests and
+  retained-worktree review/cleanup. No automatic commits, merges or pushes.
+- Native consistent backup/restore, recovery snapshots and light/dark/system mode.
+
+Targets: Linux x86_64 (AppImage/DEB), Windows x64 (NSIS/MSI), Intel macOS and
+Apple Silicon macOS (separate DMGs). See [installation](docs/INSTALLATION.md),
+[troubleshooting](docs/TROUBLESHOOTING.md), [changelog](CHANGELOG.md) and the
+[release candidate evidence](M07.md) for actual verification and download status.
+Unsigned Windows/ad-hoc macOS candidates are not trusted public packages;
+signing, notarization and clean-machine QA remain release gates.
+
+Git worktrees are **not OS security sandboxes**. Providers/test runners execute
+as your OS user and require explicit authorization. Backups are unencrypted and
+log redaction is incomplete. Read the [security model](docs/SECURITY-MODEL.md)
+before enabling agents. Local-first Forma does not make provider inference offline.
 
 ## Develop
 
@@ -153,19 +169,18 @@ browser storage implementation, including on Node 26.
 pnpm tauri build
 ```
 
-Bundles appear under `src-tauri/target/release/bundle/`. CI requests Linux
-AppImage/deb, Windows NSIS exe/MSI, and macOS app/DMG. Ordinary CI requires no
-signing credentials. A matching `v0.1.0` tag runs the checks and builds, then
-prepares a **draft** GitHub release with installers. Publishing remains manual.
+Bundles appear under `src-tauri/target/release/bundle/` (target builds add their
+Rust target directory). CI checks all four native targets, collects six installers
+with source/architecture manifests and SHA-256 sidecars, and verifies a complete
+`forma-beta-candidate` archive. Ordinary CI uses unsigned Windows packages and
+ad-hoc macOS signing, never signing secrets.
 
-macOS CI uses ad-hoc signing; this does not establish Developer ID trust or
-notarization. Public distribution needs an Apple Developer ID certificate and
-notarization credentials configured according to
-[Tauri macOS signing](https://v2.tauri.app/distribute/sign/macos/).
-Windows packages are unsigned and may trigger SmartScreen or enterprise policy.
-Trusted releases need an Authenticode certificate/signing service; see
-[Tauri Windows signing](https://v2.tauri.app/distribute/sign/windows/).
-No updater is configured.
+Only an explicitly approved matching version tag may start release preparation.
+The tag workflow requires a protected `release-signing` environment, trusted
+Windows signatures and Apple Developer ID/notarization; it creates only a
+**draft prerelease** for review. No tag or public release has been created for
+this beta. Publication and merging to main each require final explicit approval.
+No updater is configured. See [RELEASING](docs/RELEASING.md).
 
 ## Local data
 
@@ -191,6 +206,6 @@ for manual inspection.
 
 Read [ARCHITECTURE](docs/ARCHITECTURE.md), [ROADMAP](docs/ROADMAP.md),
 [CONTRIBUTING](CONTRIBUTING.md), [SECURITY](SECURITY.md), and the actual validation
-record in [M01](M01.md) and [M02](M02.md) and [M03](M03.md) and [M04](M04.md) and [M05](M05.md) and [M06](M06.md), plus the hosted verification gate in [M06.1](M06.1.md).
+record in [M01](M01.md) and [M02](M02.md) and [M03](M03.md) and [M04](M04.md) and [M05](M05.md) and [M06](M06.md), plus the hosted verification gate in [M06.1](M06.1.md) and release preparation in [M07](M07.md).
 
 Licensed under [Apache-2.0](LICENSE).

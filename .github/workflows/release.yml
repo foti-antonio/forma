@@ -1,31 +1,55 @@
-name: Draft release
+name: Approved tag to draft release
 on:
   push:
-    tags: ['v*']
+    tags: ['v[0-9]*']
 permissions:
   contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
+  policy:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Validate exact tag and aligned release metadata
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/release-version.mjs
+      - name: Require configured approval protection before accessing signing secrets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/environments/release-signing" > "$RUNNER_TEMP/environment.json"
+          jq -e '.protection_rules | any(.type == "required_reviewers" and (.reviewers | length > 0) and .prevent_self_review == true)' "$RUNNER_TEMP/environment.json"
   verify-and-build:
+    needs: policy
     uses: ./.github/workflows/ci.yml
+    with:
+      trusted-signing: true
   draft:
     needs: verify-and-build
     runs-on: ubuntu-24.04
+    environment: release-signing
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - uses: actions/download-artifact@v4
         with:
-          path: artifacts
-      - name: Validate release version
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          node -e 'if ("v" + JSON.parse(require("fs").readFileSync("package.json")).version !== process.env.RELEASE_TAG) process.exit(1)'
-      - name: Create draft with installers
+          name: forma-beta-candidate
+          path: candidate
+      - name: Reverify candidate and create unpublished prerelease draft
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" --draft --verify-tag --title "Forma $RELEASE_TAG" --generate-notes
-          find artifacts -type f \( -name '*.AppImage' -o -name '*.deb' -o -name '*.exe' -o -name '*.msi' -o -name '*.dmg' \) -print0 | xargs -0 -r gh release upload "$RELEASE_TAG"
+          node scripts/release-version.mjs
+          python3 scripts/release-artifacts.py verify candidate --version "${RELEASE_TAG#v}" --commit "$GITHUB_SHA"
+          gh release create "$RELEASE_TAG" candidate/* --draft --prerelease --verify-tag --title "Forma $RELEASE_TAG" --notes-file "docs/releases/$RELEASE_TAG.md"

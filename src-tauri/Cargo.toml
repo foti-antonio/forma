@@ -1,6 +1,6 @@
 [package]
 name = "forma"
-version = "0.1.0"
+version = "0.1.0-beta.1"
 description = "A local-first project manager for developers"
 edition = "2021"
 license = "Apache-2.0"

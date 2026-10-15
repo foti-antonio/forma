@@ -13,3 +13,5 @@ src-tauri/gen/
 *.tsbuildinfo
 
 *.forma-backup
+
+__pycache__/
