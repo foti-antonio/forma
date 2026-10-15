@@ -8,6 +8,7 @@ proves initialization only, never interactive installer or rendering correctness
 import argparse
 from datetime import datetime, timezone
 import platform
+import re
 from contextlib import closing
 import os
 import plistlib
@@ -68,7 +69,33 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
         else:
             installer = next(bundle.glob('nsis/*.exe'))
             subprocess.run([str(installer), '/S', f'/D={install}'], check=True, timeout=180)
-        executable = next(install.rglob('forma.exe'))
+        executables = list(install.rglob('forma.exe'))
+        if not executables and package_format == 'msi':
+            # Tauri's WiX AppSearch deliberately restores InstallDir from HKCU,
+            # including the NSIS install key. It can override a new command-line
+            # directory after a previous uninstall. Follow only our own earlier
+            # temporary test directories, never a developer's existing install.
+            raw_log = (root / 'msi.log').read_bytes()
+            installer_log = raw_log.decode('utf-16' if raw_log.startswith(b'\xff\xfe') else 'utf-8', errors='replace')
+            locations = re.findall(r'Property\([SC]\): INSTALLDIR = (.+)', installer_log)
+            for location in reversed(locations):
+                selected = Path(location.strip()).resolve()
+                if (selected.is_relative_to(Path(tempfile.gettempdir()).resolve())
+                        and any(parent.name.startswith('forma-package-smoke-') for parent in selected.parents)
+                        and (selected / 'forma.exe').is_file()):
+                    print(f'MSI reused remembered isolated test destination: {selected}; requested {install}', flush=True)
+                    install = selected
+                    executables = [selected / 'forma.exe']
+                    break
+        if len(executables) != 1:
+            if os.environ.get('GITHUB_ACTIONS') == 'true':
+                scope = f'{package_format}-upgrade' if args.upgrade_from else package_format
+                diagnostic = Path(os.environ['GITHUB_WORKSPACE']) / 'package-evidence' / scope
+                diagnostic.mkdir(parents=True, exist_ok=True)
+                for path in root.glob('*.log'):
+                    shutil.copy2(path, diagnostic / path.name)
+            raise RuntimeError('Installer returned without one executable in an authorized isolated test directory; inspect installer logs')
+        executable = executables[0]
         method = f'{package_format.upper()} silent install in fresh hosted app data'
     elif sys.platform == "darwin":
         image = next(bundle.glob("dmg/*.dmg"))
