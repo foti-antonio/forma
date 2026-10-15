@@ -135,7 +135,7 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
         if sys.platform == 'win32':
             command = ['powershell', '-NoProfile', '-File', str(Path(__file__).with_name('package-ui-windows.ps1')), str(process.pid), phase, marker]
         elif sys.platform == 'darwin':
-            command = ['swift', str(Path(__file__).with_name('package-ui-macos.swift')), str(process.pid)]
+            command = ['swift', str(Path(__file__).with_name('package-ui-macos.swift')), str(process.pid), phase, marker]
         else:
             command = ['/usr/bin/python3', str(Path(__file__).with_name('package-ui-linux.py')), str(process.pid), phase, marker]
         result = subprocess.run(command, env=env, timeout=120)
@@ -147,6 +147,7 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
         process.wait(timeout=20)
         assert process.returncode == 0, f'Nonzero graceful exit: {process.returncode}'
         print('PASS: ordinary native close exited 0')
+        return result.returncode == 0
 
     def stop(process):
         if process.poll() is None:
@@ -190,11 +191,12 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
                         raise RuntimeError(f'No initialized isolated schema-6 database: {log.read_text()}')
                     time.sleep(2)
                     assert process.poll() is None, log.read_text()
+                    ui_verified = False
                     if args.ui:
-                        ui(process, 'create' if launch == 0 else 'restart')
+                        ui_verified = ui(process, 'create' if launch == 0 else 'restart')
                 finally:
                     stop(process)
-            if args.ui and sys.platform != 'darwin':
+            if args.ui and ui_verified:
                 with closing(sqlite3.connect(database)) as conn:
                     assert conn.execute('SELECT name FROM workspaces WHERE name=?', (marker,)).fetchone() == (marker,)
             if launch == 0 and args.upgrade_from:
