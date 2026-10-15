@@ -1,0 +1,31 @@
+name: Draft release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  verify-and-build:
+    uses: ./.github/workflows/ci.yml
+  draft:
+    needs: verify-and-build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Validate release version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node -e 'if ("v" + JSON.parse(require("fs").readFileSync("package.json")).version !== process.env.RELEASE_TAG) process.exit(1)'
+      - name: Create draft with installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" --draft --verify-tag --title "Forma $RELEASE_TAG" --generate-notes
+          find artifacts -type f \( -name '*.AppImage' -o -name '*.deb' -o -name '*.exe' -o -name '*.msi' -o -name '*.dmg' \) -print0 | xargs -0 -r gh release upload "$RELEASE_TAG"

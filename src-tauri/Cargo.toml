@@ -1,0 +1,38 @@
+[package]
+name = "forma"
+version = "0.1.0"
+description = "A local-first project manager for developers"
+edition = "2021"
+license = "Apache-2.0"
+rust-version = "1.90"
+
+[lib]
+name = "forma_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[features]
+default = ["desktop"]
+ipc-tests = ["desktop", "tauri/test"]
+desktop = ["dep:tauri", "dep:tauri-build", "dep:rfd"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [], optional = true }
+
+[dependencies]
+tauri = { version = "2", features = [], optional = true }
+serde = { version = "1", features = ["derive"] }
+rusqlite = { version = "0.32", features = ["bundled", "backup"] }
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
+tempfile = "3"
+rfd = { version = "0.15", optional = true }
+
+[dev-dependencies]
+serde_json = "1"
+tempfile = "3"
+
+[[bin]]
+name = "forma"
+path = "src/main.rs"
+required-features = ["desktop"]
