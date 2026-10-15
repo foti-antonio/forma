@@ -32,7 +32,7 @@ if ($Phase -eq 'create') {
   $button = Wait-Node 'Create workspace'
   $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
 }
-$null = Wait-Node $Marker
+$null = Wait-Node 'Rename workspace'
 $null = Wait-Node 'Export backup'
 $window = $A::RootElement.FindFirst([System.Windows.Automation.TreeScope]::Children, $pidCondition)
 $window.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close()

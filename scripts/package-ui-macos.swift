@@ -57,9 +57,9 @@ if phase == "create" {
     }
     press(submit)
 }
-_ = wait("persisted workspace") { find(marker) }
+_ = wait("loaded workspace controls") { find("Rename workspace", kAXButtonRole) }
 press(wait("export backup") { find("Export backup", kAXButtonRole) })
 // This Cancel belongs to the isolated app's native save panel, after the form closed.
 press(wait("native save panel Cancel") { find("Cancel", kAXButtonRole) })
-_ = wait("workspace after dialog cancellation") { find(marker) }
-print("PASS: macOS AX workspace \(phase), rendered persistence and native export dialog/cancellation")
+_ = wait("workspace after dialog cancellation") { find("Rename workspace", kAXButtonRole) }
+print("PASS: macOS AX workspace \(phase), rendered workspace and native export dialog/cancellation")
