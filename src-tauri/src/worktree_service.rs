@@ -132,7 +132,18 @@ impl Service {
             let source = git_engine::open(Path::new(&source_record.path))?;
             match source.find_worktree(&format!("forma-{run}")) {
                 Ok(linked) => {
-                    if linked.path() != expected {
+                    // The leaf is gone, so canonicalize its existing parent.
+                    // libgit2 may normalize Windows verbatim paths differently
+                    // from Rust; the canonical root and exact UUID must agree.
+                    let registered = linked.path();
+                    if !registered.is_absolute()
+                        || registered.file_name() != expected.file_name()
+                        || registered
+                            .parent()
+                            .and_then(|parent| parent.canonicalize().ok())
+                            .as_deref()
+                            != expected.parent()
+                    {
                         return Err(engine::error("Registered worktree path changed."));
                     }
                     linked.prune(None).map_err(git_engine::failure)?;

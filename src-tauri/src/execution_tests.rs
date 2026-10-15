@@ -513,8 +513,37 @@ fn interrupted_cleanup_recovers_registration_without_force_removal() {
     drop(s);
     let s = Service::open(&dir.path().join("test.sqlite3")).unwrap();
     assert_eq!(s.agent_worktrees(0).unwrap()[0].cleanup_state, "Failed");
+    let source = git2::Repository::open(dir.path().join("repo")).unwrap();
+    let registration = source
+        .path()
+        .join("worktrees")
+        .join(format!("forma-{}", run.id))
+        .join("gitdir");
+    let original = std::fs::read(&registration).unwrap();
+    let other_parent = dir.path().join("unrelated");
+    std::fs::create_dir(&other_parent).unwrap();
+    for wrong in [
+        Path::new(&run.worktree).with_file_name("different-run"),
+        other_parent.join(&run.id),
+    ] {
+        std::fs::write(
+            &registration,
+            wrong.join(".git").to_string_lossy().as_bytes(),
+        )
+        .unwrap();
+        assert_eq!(
+            s.agent_cleanup(&run.id, true).unwrap_err().message,
+            "Registered worktree path changed."
+        );
+        assert!(registration.exists());
+        assert_eq!(s.agent_worktrees(0).unwrap()[0].cleanup_state, "Failed");
+    }
+    std::fs::write(&registration, original).unwrap();
     s.agent_cleanup(&run.id, true).unwrap();
     assert_eq!(s.agent_worktrees(0).unwrap()[0].cleanup_state, "Removed");
+    assert!(source
+        .find_branch(&run.branch, git2::BranchType::Local)
+        .is_ok());
 }
 #[cfg(unix)]
 #[test]
