@@ -98,6 +98,19 @@ satisfy public publisher trust.
    `WINDOWS_CERTIFICATE` to the single-line base64 of the PFX and
    `WINDOWS_CERTIFICATE_PASSWORD` to that password. Use a local private file and
    GitHub's secret input; do not paste either into issues, logs or this repository.
+   From a trusted Windows PowerShell with `gh` authenticated, upload without
+   printing the base64 value:
+
+   ```powershell
+   $encoded = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path .\code-signing.pfx)))
+   $encoded | gh secret set WINDOWS_CERTIFICATE --repo foti-antonio/forma --env release-signing
+   Remove-Variable encoded
+   gh secret set WINDOWS_CERTIFICATE_PASSWORD --repo foti-antonio/forma --env release-signing
+   ```
+
+   Enter the PFX password only at the secret prompt. These commands require the
+   owner-created protected environment and do not create the certificate.
+
 4. After a separately approved tag run, require SHA-256/RFC3161 signatures,
    the expected certificate thumbprint, timestamp certificate and `Valid` status
    for `forma.exe`, NSIS and MSI. Test the downloaded packages under ordinary
@@ -122,6 +135,21 @@ satisfy public publisher trust.
    [app-specific password](https://support.apple.com/en-us/102654) in the Apple
    Account sign-in/security page and store it as `APPLE_PASSWORD`; never use the
    primary account password. Two-factor authentication must remain enabled.
+   On the trusted Mac, upload directly from the private P12, then use interactive
+   secret prompts for each remaining value:
+
+   ```sh
+   base64 < developer-id.p12 | tr -d '\n' | gh secret set APPLE_CERTIFICATE --repo foti-antonio/forma --env release-signing
+   gh secret set APPLE_CERTIFICATE_PASSWORD --repo foti-antonio/forma --env release-signing
+   gh secret set APPLE_SIGNING_IDENTITY --repo foti-antonio/forma --env release-signing
+   gh secret set APPLE_TEAM_ID --repo foti-antonio/forma --env release-signing
+   gh secret set APPLE_ID --repo foti-antonio/forma --env release-signing
+   gh secret set APPLE_PASSWORD --repo foti-antonio/forma --env release-signing
+   ```
+
+   Confirm only names using the environment secret list in GitHub Settings; never
+   retrieve or log values.
+
 4. After an approved protected run, verify `codesign --verify --deep --strict`,
    `spctl --assess --type execute`, accepted app/DMG notarization and stapled
    tickets on both architectures. Download through a normal browser and test

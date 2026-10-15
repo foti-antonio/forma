@@ -5,6 +5,10 @@ compatibility is separately documented in [BACKUP](docs/BACKUP.md).
 
 ## [0.1.0-beta.1] — Unreleased
 
+Release hardening (M07.1): macOS candidate minimum 15.0; reject Unix setuid/setgid
+provider/test executables; stronger signing policy and native package verification.
+See [M07.1](M07.1.md) for executed evidence and remaining distribution blockers.
+
 Proposed first public beta. No release tag or public release exists yet.
 
 ### Included

@@ -17,9 +17,9 @@ may require network access. On macOS retain the exact Gatekeeper message and
 confirm Developer ID/notarization status. Do not disable security controls,
 remove quarantine or use ad-hoc signing as a trust workaround.
 
-M07 records WebKit subprocess shutdown crashes on the Linux development host's
+M07/M07.1 record WebKit subprocess shutdown crashes on the Linux development host's
 mixed extracted-runtime/host-graphics environment. Preserve sanitized crash
-metadata and consult [M07](../M07.md); no universal graphics workaround or clean
+metadata and consult [M07.1](../M07.1.md); no universal graphics workaround or clean
 supported-desktop stability result is claimed.
 
 Only one Forma process may own an app-data directory. Close the prior process
@@ -47,7 +47,10 @@ Backups exclude repositories/worktrees and are not encrypted.
 ## Agent or test cannot start
 
 Authorize a trusted native executable again after it changes or after restore.
-On Windows select the actual `.exe`, not `.cmd`/`.bat`. Authenticate outside Forma.
+On Windows select the actual `.exe`, not `.cmd`/`.bat`. On Unix use a trusted
+executable without setuid/setgid or group/world-write bits; Forma rejects
+privileged executables. Do not change system binary permissions to bypass this
+check. Authenticate outside Forma.
 A changed task, settings, HEAD, executable or expired preview needs a new preview
 and approval. Dirty/unborn/detached repositories are rejected. Queues require an
 explicit Start; restarting never resumes execution. Whole-provider isolation is
@@ -68,4 +71,4 @@ accepting/rejecting a result alone does not make dirty files disposable.
 Use the bug template and state which installer/UI actions were actually tried.
 Attach only sanitized screenshots with sample data. Signing credentials and
 physical Windows/macOS access cannot be inferred from Linux or CI build results.
-Known platform limits and candidate artifacts are in [M07](../M07.md).
+Known platform limits and candidate artifacts are in [M07.1](../M07.1.md).
