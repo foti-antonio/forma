@@ -18,6 +18,10 @@ if (!read('CHANGELOG.md').includes(`## [${version}]`))
   throw Error('Missing changelog entry');
 if (!read(`docs/releases/v${version}.md`).includes(`Forma v${version}`))
   throw Error('Missing release notes');
+if (config.bundle.macOS.minimumSystemVersion !== '15.0')
+  throw Error('Reviewed macOS deployment floor must be 15.0');
+if (config.bundle.windows.webviewInstallMode?.type !== 'downloadBootstrapper')
+  throw Error('Windows must provision the Evergreen WebView2 runtime');
 // Native installers need numeric versions. Review these mappings at every release.
 const [base, beta] = version.split('-beta.');
 const [major, minor, patch] = base.split('.').map(Number);

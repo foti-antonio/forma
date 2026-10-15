@@ -8,6 +8,7 @@ proves initialization only, never interactive installer or rendering correctness
 import argparse
 from contextlib import closing
 import os
+import plistlib
 import uuid
 from pathlib import Path
 import shutil
@@ -20,6 +21,7 @@ import time
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('bundle', type=Path)
 parser.add_argument('--format', choices=['deb', 'appimage', 'nsis', 'msi', 'dmg'])
+parser.add_argument('--ui', action='store_true', help='Use public accessibility APIs; report macOS TCC unavailability explicitly')
 parser.add_argument('--install-deb', action='store_true', help='Install/remove DEB only on a fresh ephemeral GitHub-hosted Linux runner')
 args = parser.parse_args()
 bundle = args.bundle.resolve()
@@ -101,6 +103,41 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
             subprocess.run(["bsdtar", "-xf", str(payload), "-C", str(install)], check=True)
         executable = install / "usr/bin/forma"
         method = "deb extraction and packaged process initialization (no installation)"
+    if args.ui and sys.platform.startswith('linux'):
+        env.update(GTK_MODULES='gail:atk-bridge', NO_AT_BRIDGE='0')
+        # Fresh Xvfb session only; do not alter an existing desktop WM.
+        if subprocess.run(['wmctrl', '-m'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
+            wm = subprocess.Popen(['openbox'], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            time.sleep(1)
+    if sys.platform == 'darwin':
+        info = plistlib.loads((copied / 'Contents/Info.plist').read_bytes())
+        assert info['LSMinimumSystemVersion'] == '15.0', info
+        assert info['CFBundleIdentifier'] == 'dev.forma.desktop', info
+        assert info['CFBundleShortVersionString'] == '0.1.0-beta.1', info
+        print('PASS: DMG application metadata, macOS deployment floor 15.0')
+    if sys.platform == 'win32':
+        runtime = subprocess.check_output(['powershell', '-NoProfile', '-Command',
+            r"$p=@('HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'HKCU:\Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'); Get-ItemProperty $p -ErrorAction SilentlyContinue | Select-Object -ExpandProperty pv"], text=True).strip()
+        # Runtime initialization below is authoritative; registry discovery is diagnostic.
+        print('WebView2 registered version(s): ' + (runtime or 'not discovered; see launch result'))
+
+    def ui(process, phase):
+        if sys.platform == 'win32':
+            command = ['powershell', '-NoProfile', '-File', str(Path(__file__).with_name('package-ui-windows.ps1')), str(process.pid), phase, marker]
+        elif sys.platform == 'darwin':
+            command = ['swift', str(Path(__file__).with_name('package-ui-macos.swift')), str(process.pid)]
+        else:
+            command = ['/usr/bin/python3', str(Path(__file__).with_name('package-ui-linux.py')), str(process.pid), phase, marker]
+        result = subprocess.run(command, env=env, timeout=120)
+        if sys.platform == 'darwin' and result.returncode in (0, 77):
+            # NSRunningApplication termination does not require AX/TCC permission.
+            subprocess.run(['swift', '-e', 'import AppKit; guard let app = NSRunningApplication(processIdentifier: Int32(CommandLine.arguments[1])!), app.terminate() else { exit(1) }', str(process.pid)], check=True, timeout=60)
+        else:
+            result.check_returncode()
+        process.wait(timeout=20)
+        assert process.returncode == 0, f'Nonzero graceful exit: {process.returncode}'
+        print('PASS: ordinary native close exited 0')
+
     def stop(process):
         if process.poll() is None:
             if sys.platform == 'win32':
@@ -143,8 +180,13 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
                         raise RuntimeError(f'No initialized isolated schema-6 database: {log.read_text()}')
                     time.sleep(2)
                     assert process.poll() is None, log.read_text()
+                    if args.ui:
+                        ui(process, 'create' if launch == 0 else 'restart')
                 finally:
                     stop(process)
+            if args.ui and sys.platform != 'darwin':
+                with closing(sqlite3.connect(database)) as conn:
+                    assert conn.execute('SELECT name FROM workspaces WHERE name=?', (marker,)).fetchone() == (marker,)
             if launch == 0:
                 # Isolated database fixture, not a claim of UI-driven persistence.
                 with closing(sqlite3.connect(database)) as conn:
@@ -176,4 +218,4 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
 
     print(f'PASS: {method}; two launches, schema 6/integrity/foreign keys and seeded restart fixture preserved.'
           ' Installed DEB/Windows uninstall and data retention checked when applicable.'
-          ' Interactive UI, native installer dialogs, signing trust and notarization remain unverified.')
+          ' Accessibility scope is reported separately; native installer dialogs, signing trust and notarization remain unverified.')

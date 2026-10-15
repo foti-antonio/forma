@@ -15,7 +15,7 @@ Rust-owned SQLite on your computer; no Forma account or server is required.
 Targets: Linux x86_64 (AppImage/DEB), Windows x64 (NSIS/MSI), Intel macOS and
 Apple Silicon macOS (separate DMGs). See [installation](docs/INSTALLATION.md),
 [troubleshooting](docs/TROUBLESHOOTING.md), [changelog](CHANGELOG.md) and the
-[release candidate evidence](M07.md) for actual verification and download status.
+[release hardening evidence](M07.1.md) for actual verification and download status.
 Unsigned Windows/ad-hoc macOS candidates are not trusted public packages;
 signing, notarization and clean-machine QA remain release gates.
 
@@ -65,7 +65,8 @@ Use Rust's MSVC toolchain and run the commands below in PowerShell.
 
 ### macOS (Intel and Apple Silicon)
 
-Install Xcode Command Line Tools: `xcode-select --install`. Install Rust for your
+Candidate minimum: **macOS 15.0** on both architectures; older releases are
+unsupported. Install Xcode Command Line Tools: `xcode-select --install`. Install Rust for your
 native architecture. Native builds produce the corresponding Intel or Apple
 Silicon application; CI builds both architectures separately.
 

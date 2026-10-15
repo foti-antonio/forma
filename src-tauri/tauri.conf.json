@@ -37,10 +37,11 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "minimumSystemVersion": "10.15",
+      "minimumSystemVersion": "15.0",
       "bundleVersion": "0.1.1"
     },
     "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
       "wix": {
         "version": "0.1.0.1"
       }

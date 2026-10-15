@@ -67,6 +67,9 @@ Do not attach private databases or raw logs to public bug reports.
 Restore validates exact schemas and integrity in private staging, creates recovery
 copies and strips repository/executable/worktree authorization. Historical runs
 stay readable, unfinished work is interrupted and approvals are invalidated.
+Recovery copies and exported backups have no automatic expiration or pruning;
+review them after a verified restore and deliberately remove obsolete copies from
+secure storage. Deleting a workspace does not erase historical exported backups.
 See [BACKUP](BACKUP.md) and [AGENTS-INTEGRATION](AGENTS-INTEGRATION.md).
 
 ## Package trust

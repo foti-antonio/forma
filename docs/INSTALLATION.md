@@ -6,19 +6,24 @@ in [M07](../M07.md), retained for 30 days and may require GitHub authentication.
 Choose `forma-beta-candidate` for all six installers and `SHA256SUMS`, or the
 matching target archive. Extract before verifying or installing.
 
-| System        | Target in filename       | Requirements                                                       |
-| ------------- | ------------------------ | ------------------------------------------------------------------ |
-| Linux x86_64  | x86_64-unknown-linux-gnu | Graphical desktop; WebKitGTK 4.1; CI baseline Ubuntu 24.04         |
-| Windows x64   | x86_64-pc-windows-msvc   | Windows 10/11; WebView2 Runtime                                    |
-| Intel macOS   | x86_64-apple-darwin      | Configured minimum macOS 10.15; only hosted macOS 15 builds tested |
-| Apple Silicon | aarch64-apple-darwin     | Native Apple Silicon macOS; hosted macOS 15 builds tested          |
+| System        | Target in filename       | Requirements                                               |
+| ------------- | ------------------------ | ---------------------------------------------------------- |
+| Linux x86_64  | x86_64-unknown-linux-gnu | Graphical desktop; WebKitGTK 4.1; CI baseline Ubuntu 24.04 |
+| Windows x64   | x86_64-pc-windows-msvc   | Windows 10/11; WebView2 Runtime                            |
+| Intel macOS   | x86_64-apple-darwin      | macOS 15.0+; hosted macOS 15 validation only               |
+| Apple Silicon | aarch64-apple-darwin     | macOS 15.0+; hosted macOS 15 validation only               |
 
-Configured minimum versions are not claims of testing on every supported OS.
-The frontend uses Tailwind 4, whose [browser baseline](https://tailwindcss.com/docs/compatibility)
-includes Safari 16.4 / Chrome 111 / Firefox 128. The inherited macOS 10.15 native
-packaging floor does not establish compatible WKWebView rendering. Selecting and
-testing the actual minimum macOS/WebKit baseline is a public distribution gate;
-only macOS 15 hosted initialization is currently evidenced.
+Forma's candidate support floor is **macOS 15.0 on both architectures**. Tauri's
+native minimum alone does not determine frontend compatibility: Tailwind 4 needs
+[Safari 16.4 or newer](https://tailwindcss.com/docs/compatibility). WebKit reports
+[Safari 16.4 on several older macOS releases](https://webkit.org/blog/13966/webkit-features-in-safari-16-4/),
+but this does not prove Forma's WKWebView works on them. The deployment target
+and package metadata therefore match the oldest executed runner baseline, 15.0.
+No support for macOS 10.15–14 is claimed. Newer macOS versions also need native QA.
+Linux's supported validation baseline is Ubuntu 24.04 x86_64 with distribution
+WebKitGTK 4.1; Windows 10/11 x64 is an intended baseline with current Evergreen
+WebView2 (Chrome 111+ engine needed by Tailwind), with Windows 10 unverified.
+Build/test evidence and release blockers are tracked in [M07.1](../M07.1.md).
 Linux ARM, Windows ARM and universal macOS packages are not provided.
 
 ## Check the download

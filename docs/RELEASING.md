@@ -8,7 +8,7 @@ user approval. Branch pushes build review candidates only. There is no updater.
 
 Use README's Node/pnpm/Rust environment and Python 3.11+ for the artifact tooling.
 
-1. Work on `milestone/m07-public-beta`, starting from the verified M06.1 lineage.
+1. Work on `milestone/m07.1-release-hardening`, starting from the verified M07 lineage.
    Preserve `dev.forma.desktop`, all released migrations and user data.
 2. Align `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` and
    the Forma entry in Cargo.lock. Add CHANGELOG and `docs/releases/v<version>.md`.
@@ -23,17 +23,19 @@ Use README's Node/pnpm/Rust environment and Python 3.11+ for the artifact toolin
    The aggregate candidate job rejects missing packages, wrong headers/CPU,
    mixed source commits/versions, corrupt bytes and extra installers.
 5. Download `forma-beta-candidate`, verify the six checksums, record the exact run,
-   source SHA, manifest, artifact URLs and native QA evidence in M07.md.
+   source SHA, manifest, artifact URLs and native QA evidence in M07.1.md.
    Archives expire after 30 days; rebuild from the reviewed source when necessary.
    Unsigned/ad-hoc CI artifacts are internal candidates only.
 
 ## Protected signing setup (currently blocked)
 
 The repository owner must provision a GitHub environment named `release-signing`
-with required reviewers, prevent self-review, restrict deployment refs to approved
-version tags, and restrict who can create matching tags using repository rulesets.
+with required reviewers, prevent self-review, restrict deployment refs to the one exact approved
+version tag (currently `v0.1.0-beta.1`, type **Tag**, no branch policies), and restrict who can create matching tags using repository rulesets.
 The release policy job reads the environment with `actions: read` and fails unless
-reviewer protection and prevent-self-review are present. This read permission is
+reviewer protection, prevent-self-review and exact-tag-only deployment are present.
+Disable administrator bypass in environment settings and verify this manually
+before approval; the REST policy gate does not attest that setting. This read permission is
 required by [GitHub's environment API](https://docs.github.com/en/rest/deployments/environments#get-an-environment). No environment or credential is created by
 this milestone. Availability of environment protections depends on repository
 visibility/plan. Resolve that before any approved tag.
@@ -69,6 +71,78 @@ References: [Tauri macOS signing](https://v2.tauri.app/distribute/sign/macos/),
 Configured integration is not evidence of an executed signing/notarization run.
 SmartScreen reputation and Gatekeeper on downloaded/quarantined artifacts need
 separate clean-machine evidence; never bypass them to obtain a passing result.
+
+## Acquiring and configuring signing credentials
+
+No credentials, environment, subscription or purchase is created by this work.
+The owner must complete these steps on trusted machines, then review the exact
+source before allowing any signing job. Never use a self-signed certificate to
+satisfy public publisher trust.
+
+### Windows owner steps
+
+1. Choose a publicly trusted code-signing issuer/service and complete its identity
+   validation. Confirm support for unattended GitHub-hosted signing before paying.
+   [DigiCert's issuance requirements](https://knowledge.digicert.com/alerts/code-signing-changes-in-2023)
+   require hardware-backed keys. A new certificate cannot be assumed exportable
+   as PFX. A USB token normally cannot be attached to an ephemeral hosted runner.
+2. The checked-in workflow supports **only an issuer-permitted exportable PFX**.
+   If that is unavailable, signing is blocked until a reviewed hardware/cloud
+   integration replaces certificate import with Tauri's documented
+   [custom signCommand](https://v2.tauri.app/distribute/sign/windows/).
+   Configure that service's least-privilege identity and timestamping, then keep
+   the existing executable/installer signature gates. Do not export an HSM key.
+3. For an existing permitted PFX, export the code-signing certificate and private
+   key with its certificate chain and a strong password. In GitHub repository
+   Settings → Environments → `release-signing` → Environment secrets, set
+   `WINDOWS_CERTIFICATE` to the single-line base64 of the PFX and
+   `WINDOWS_CERTIFICATE_PASSWORD` to that password. Use a local private file and
+   GitHub's secret input; do not paste either into issues, logs or this repository.
+4. After a separately approved tag run, require SHA-256/RFC3161 signatures,
+   the expected certificate thumbprint, timestamp certificate and `Valid` status
+   for `forma.exe`, NSIS and MSI. Test the downloaded packages under ordinary
+   SmartScreen policy; certificate validity alone does not prove reputation.
+
+### Apple owner steps
+
+1. Enroll/maintain an Apple Developer Program team with permission to issue
+   [Developer ID certificates](https://developer.apple.com/help/account/certificates/create-developer-id-certificates/).
+   On a trusted Mac use Xcode → Settings → Accounts → team → Manage Certificates
+   to create **Developer ID Application** (not Apple Development or Installer).
+   Alternatively generate a CSR in Keychain Access and request that certificate
+   in Certificates, Identifiers & Profiles, then install the returned certificate.
+2. In Keychain Access → My Certificates, locate that identity with its private key,
+   export both as password-protected `.p12`, and retain a secure offline copy.
+   `security find-identity -v -p codesigning` shows the full identity; it must begin
+   `Developer ID Application:`. The team ID is in developer account membership.
+3. Set environment secrets `APPLE_CERTIFICATE` to the P12's single-line base64,
+   `APPLE_CERTIFICATE_PASSWORD` to its export password,
+   `APPLE_SIGNING_IDENTITY` to the complete identity, and `APPLE_TEAM_ID` to the
+   membership team ID. Set `APPLE_ID` to the account email. Generate an
+   [app-specific password](https://support.apple.com/en-us/102654) in the Apple
+   Account sign-in/security page and store it as `APPLE_PASSWORD`; never use the
+   primary account password. Two-factor authentication must remain enabled.
+4. After an approved protected run, verify `codesign --verify --deep --strict`,
+   `spctl --assess --type execute`, accepted app/DMG notarization and stapled
+   tickets on both architectures. Download through a normal browser and test
+   Gatekeeper with quarantine intact on clean Macs. Never strip quarantine.
+
+### GitHub owner steps
+
+In repository Settings → Environments create `release-signing`, add an independent
+required reviewer with read access, enable **Prevent self-review**, disallow
+administrator bypass, and select **Selected branches and tags**. Add only a
+**Tag** rule equal to the approved version, with no wildcard or branch rules.
+An owner alone cannot self-approve; arrange an eligible independent reviewer.
+If the current plan cannot enforce these controls, change plan/visibility through
+an explicit owner decision before proceeding. The environment REST gate checks
+reviewer and exact tag rules; the reviewer must also inspect the UI's bypass policy.
+
+In Settings → Rules → Rulesets create an active tag ruleset for version tags,
+restrict creation/update/deletion to authorized release maintainers, and review
+bypass actors. Record the ruleset and approval evidence before creating any tag.
+Current audit found no environment, repository secrets or rulesets. This milestone
+does not create them. Ordinary branch CI must continue without signing secrets.
 
 ## Final approval and draft
 
