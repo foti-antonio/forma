@@ -2,9 +2,12 @@
 
 Version: **0.1.0-beta.1**. This is an unpublished candidate. There is no approved
 public download yet. Candidate artifacts are attached to the Actions run linked
-in [M07](../M07.md), retained for 30 days and may require GitHub authentication.
+in [M07.1](../M07.1.md), retained for 30 days and may require GitHub authentication.
 Choose `forma-beta-candidate` for all six installers and `SHA256SUMS`, or the
-matching target archive. Extract before verifying or installing.
+matching target archive. Extract before verifying or installing. For controlled,
+opt-in testing see the [private beta guide](BETA.md) and its exact candidate
+checksum list; the older M07 candidate has different bytes. Stop at platform
+security blocks and report them without overriding trust controls.
 
 | System        | Target in filename       | Requirements                                               |
 | ------------- | ------------------------ | ---------------------------------------------------------- |

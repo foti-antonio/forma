@@ -1,18 +1,32 @@
 name: Beta bug report
-description: Report a reproducible Forma problem using sanitized sample data.
+description: Public issue — use sanitized sample data only; private beta feedback may stay private.
+
 body:
+  - type: markdown
+    attributes:
+      value: |
+        GitHub issues here are public. Use the coordinator's agreed private beta channel if preferred.
+        Never attach credentials, private repositories/code, raw backups/databases, complete logs or memory dumps.
+        Redaction is incomplete; manually inspect excerpts and screenshots. Report vulnerabilities through SECURITY.md.
   - type: input
     id: version
     attributes:
-      label: Forma version and package SHA-256
+      label: Forma version, candidate source SHA and installer SHA-256
+      description: Include installer filename/format and the full 64-character hash; state whether it matched the reviewed list.
     validations:
       required: true
   - type: input
     id: platform
     attributes:
-      label: OS version, CPU architecture and installer format
+      label: Exact OS version/build, CPU architecture and runtime
+      description: Include WebKitGTK/display backend, WebView2 version, or macOS point version as applicable.
     validations:
       required: true
+  - type: input
+    id: installation
+    attributes:
+      label: Clean install or upgrade, previous version, and acceptance row ID
+      description: Use only a tester alias if needed; no real name, home path or repository identity.
   - type: textarea
     id: steps
     attributes:
@@ -31,4 +45,4 @@ body:
     id: evidence
     attributes:
       label: Sanitized evidence and workarounds tried
-      description: State first-launch/restart results and any platform limitations. Do not bypass OS security.
+      description: Include frequency, first-launch/restart/shutdown results, trust prompts and platform limitations. Optional minimal sanitized log excerpts only; omit anything uncertain. Never bypass OS security.

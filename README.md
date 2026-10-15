@@ -24,6 +24,10 @@ as your OS user and require explicit authorization. Backups are unencrypted and
 log redaction is incomplete. Read the [security model](docs/SECURITY-MODEL.md)
 before enabling agents. Local-first Forma does not make provider inference offline.
 
+Private beta preparation for 5–10 opt-in external testers is documented in the
+[tester guide](docs/BETA.md) and [M07.2 report](M07.2.md). Enrollment and manual
+acceptance have not started; see the [open blockers](docs/RELEASE-BLOCKERS.md).
+
 ## Screenshots
 
 Genuine Linux desktop captures of this beta with an isolated sample workspace.

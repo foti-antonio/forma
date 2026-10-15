@@ -204,3 +204,34 @@ and stop, independent tests, worktree review/clean cleanup, export/restore and
 restart. Check light/dark/system, 760×540 window scrolling, keyboard focus and
 loading/error/empty states. Screenshots must be genuine app captures with sample
 data. Record unsupported physical/GUI access as unverified, not passed.
+
+## M07.2 owner action record before any signing run
+
+The private beta [guide](BETA.md), [acceptance sheet](BETA-ACCEPTANCE.md),
+[blockers](RELEASE-BLOCKERS.md) and [exit checklist](BETA-EXIT.md) prepare testing;
+they do not authorize tags, publication, main merge or tester contact.
+M07.2 reviewed the checked-in `release.yml`, reusable `ci.yml`,
+`release-policy.py` and `tauri.conf.json`. Ordinary builds remain unsigned on
+Windows/ad-hoc on macOS. Trusted builds require `release-signing` and the existing
+signature/notarization checks. No updater or product capability changes were made.
+
+Live GitHub verification was unavailable (`gh: command not found`); M07.1's
+no-environment/no-secrets/no-rulesets audit is historical, not a fresh assertion.
+The owner must complete and record the following actions; **all are pending**:
+
+| Owner action                          | Exact completion evidence to record, without secrets                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Audit current remote state            | Using authenticated `gh`, run `gh api repos/foti-antonio/forma/environments`, `gh api repos/foti-antonio/forma/actions/secrets --jq '.secrets[].name'`, `gh api repos/foti-antonio/forma/rulesets`, and `gh release list --repo foti-antonio/forma`. Inspect environment-scoped secret names separately after creating the environment. Record time and sanitized names/policies only.                |
+| Protect signing and tags              | Follow GitHub owner steps above: independent reviewer, prevent self-review, no administrator bypass, selected exact approved Tag rule only, active ruleset restricting tag creation/update/deletion and reviewed bypass actors. Read environment and deployment-branch-policies through the API and run `release-policy.py` with that exact tag. Confirm plan supports enforcement before proceeding. |
+| Acquire Windows trust                 | Complete issuer validation and verify allowed key custody. Current workflow only imports issuer-permitted PFX with private key/code-signing EKU. If hardware/cloud custody is required, implement/review a compatible signCommand first. Never export an HSM key or substitute self-signing.                                                                                                          |
+| Configure Windows environment secrets | Set `WINDOWS_CERTIFICATE` (base64 permitted PFX) and `WINDOWS_CERTIFICATE_PASSWORD` only in protected release-signing, following commands above. Record issuer/expected thumbprint privately and secret names only.                                                                                                                                                                                   |
+| Acquire Apple trust                   | Active Developer Program team, Developer ID Application identity with private key, protected P12, team ID and app-specific password with two-factor authentication retained. Follow Apple steps above.                                                                                                                                                                                                |
+| Configure Apple environment secrets   | Set `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` only in protected release-signing. Use the above interactive commands; never log values.                                                                                                                                                                               |
+| Authorize exact build                 | Review source/workflows/locks, candidate version and outstanding gates. Obtain separate explicit exact-SHA/version tag approval. No tag is created as part of M07.2; the existing signing path cannot execute without that separately approved step.                                                                                                                                                  |
+| Verify executed trust                 | Require protected job success, expected Windows thumbprint/Valid status/timestamp on executable and both installers, Apple codesign/spctl and accepted app/DMG notarization/stapled tickets on both CPUs. Record new hashes; configuration alone proves none of these.                                                                                                                                |
+| Verify downloaded acceptance          | Retest signed bytes on clean Windows 10/11 and Intel/Apple Silicon macOS with normal browser quarantine and security policy. Record SmartScreen/Gatekeeper prompts and blocked results honestly. Do not bypass a block.                                                                                                                                                                               |
+
+The existing owner acquisition sections remain the exact credential procedures.
+Do not attach keys/certificates/passwords to reports or grant secrets to ordinary
+CI. Preparation is complete even while these external owner gates remain open;
+public distribution is not ready until the exit checklist is satisfied.
