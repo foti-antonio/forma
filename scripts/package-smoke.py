@@ -20,9 +20,9 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
     env = os.environ.copy()
     data = root / "data"
     data.mkdir()
-    env.update(HOME=str(data), USERPROFILE=str(data), APPDATA=str(data),
-               LOCALAPPDATA=str(data), XDG_DATA_HOME=str(data),
-               XDG_CONFIG_HOME=str(data / "config"))
+    if sys.platform != "win32":
+        env.update(HOME=str(data), XDG_DATA_HOME=str(data),
+                   XDG_CONFIG_HOME=str(data / "config"))
     if sys.platform == "win32":
         # Tauri uses SHGetKnownFolderPath, which ignores APPDATA overrides.
         # Use only a fresh, ephemeral hosted profile; never launch against an
@@ -98,7 +98,13 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
             print(f"PASS: {method}; schema 6 integrity ok. Interactive installation, rendering, signing trust and notarization remain unverified.")
         finally:
             if process.poll() is None:
-                process.terminate()
+                if sys.platform == "win32":
+                    # WebView2 descendants can otherwise retain the temporary
+                    # installation/profile after terminating only Forma.
+                    subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                                   check=True, timeout=30)
+                else:
+                    process.terminate()
                 try:
                     process.wait(timeout=15)
                 except subprocess.TimeoutExpired:
