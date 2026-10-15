@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Launch a packaged app with isolated data on a native runner.
 
-Windows installs NSIS silently into a temporary folder. Linux extracts a deb;
+Windows requires a fresh GitHub-hosted runner and installs NSIS silently into a temporary folder. Linux extracts a deb;
 macOS mounts a DMG and copies its app. A running process plus a valid database
 proves initialization only, never interactive installer or rendering correctness.
 """
@@ -24,11 +24,25 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
                LOCALAPPDATA=str(data), XDG_DATA_HOME=str(data),
                XDG_CONFIG_HOME=str(data / "config"))
     if sys.platform == "win32":
+        # Tauri uses SHGetKnownFolderPath, which ignores APPDATA overrides.
+        # Use only a fresh, ephemeral hosted profile; never launch against an
+        # existing Forma directory or a developer's normal Windows profile.
+        if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
+            raise RuntimeError("Windows package smoke requires an ephemeral GitHub-hosted runner")
+        roaming = subprocess.check_output([
+            "powershell", "-NoProfile", "-NonInteractive", "-Command",
+            "[Environment]::GetFolderPath('ApplicationData')",
+        ], text=True, timeout=30).strip()
+        if not roaming or not Path(roaming).is_absolute():
+            raise RuntimeError("Cannot resolve the Windows roaming app-data known folder")
+        data = Path(roaming) / "dev.forma.desktop"
+        if data.exists() or data.is_symlink():
+            raise RuntimeError("Refusing to launch with pre-existing Forma app data")
         installer = next(bundle.glob("nsis/*.exe"))
         install = root / "installed"
         subprocess.run([str(installer), "/S", f"/D={install}"], check=True, timeout=120)
         executable = next(install.rglob("forma.exe"))
-        method = "NSIS silent install and installed process initialization"
+        method = "NSIS silent install and installed process initialization in fresh hosted app data"
     elif sys.platform == "darwin":
         image = next(bundle.glob("dmg/*.dmg"))
         mount = root / "mounted"
