@@ -6,6 +6,7 @@ macOS mounts a DMG and copies its app. A running process plus a valid database
 proves initialization only, never interactive installer or rendering correctness.
 """
 import argparse
+from contextlib import closing
 import os
 import uuid
 from pathlib import Path
@@ -128,7 +129,7 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
                         databases = list(data.rglob('forma.sqlite3'))
                         if databases:
                             try:
-                                with sqlite3.connect(databases[0]) as conn:
+                                with closing(sqlite3.connect(databases[0])) as conn:
                                     if conn.execute('PRAGMA user_version').fetchone() == (6,):
                                         assert conn.execute('PRAGMA integrity_check').fetchone() == ('ok',)
                                         assert conn.execute('PRAGMA foreign_key_check').fetchall() == []
@@ -146,11 +147,12 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
                     stop(process)
             if launch == 0:
                 # Isolated database fixture, not a claim of UI-driven persistence.
-                with sqlite3.connect(database) as conn:
+                with closing(sqlite3.connect(database)) as conn:
                     conn.execute("INSERT INTO workspaces(id,name,created_at,updated_at) VALUES(?,?,?,?)",
                                  (marker, 'Package restart fixture', '2026-10-15T00:00:00Z', '2026-10-15T00:00:00Z'))
+                    conn.commit()
             else:
-                with sqlite3.connect(database) as conn:
+                with closing(sqlite3.connect(database)) as conn:
                     assert conn.execute('SELECT name FROM workspaces WHERE id=?', (marker,)).fetchone() == ('Package restart fixture',)
         if args.install_deb:
             subprocess.run(['sudo', 'apt-get', 'remove', '-y', 'forma'], check=True, timeout=120)
@@ -167,10 +169,11 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
                 time.sleep(.2)
             assert not executable.exists(), 'Uninstall retained executable'
             assert database.exists(), 'Uninstall removed persistent data'
-        print(f'PASS: {method}; two launches, schema 6/integrity/foreign keys and seeded restart fixture preserved.'
-              ' Installed DEB/Windows uninstall and data retention checked when applicable.'
-              ' Interactive UI, native installer dialogs, signing trust and notarization remain unverified.')
     finally:
         if sys.platform == 'win32' and data.exists():
             # Only reached after the fresh hosted directory precondition passed.
             shutil.rmtree(data)
+
+    print(f'PASS: {method}; two launches, schema 6/integrity/foreign keys and seeded restart fixture preserved.'
+          ' Installed DEB/Windows uninstall and data retention checked when applicable.'
+          ' Interactive UI, native installer dialogs, signing trust and notarization remain unverified.')
