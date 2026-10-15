@@ -23,12 +23,18 @@ import time
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('bundle', type=Path)
 parser.add_argument('--format', choices=['deb', 'appimage', 'nsis', 'msi', 'dmg'])
+parser.add_argument('--upgrade-from', type=Path, help='Windows only: install a verified prior bundle, create data, then upgrade before restart')
 parser.add_argument('--ui', action='store_true', help='Use public accessibility APIs; report macOS TCC unavailability explicitly')
 parser.add_argument('--install-deb', action='store_true', help='Install/remove DEB only on a fresh ephemeral GitHub-hosted Linux runner')
 args = parser.parse_args()
 bundle = args.bundle.resolve()
 started = datetime.now(timezone.utc).isoformat()
 print(f'Host: {platform.platform()} / {platform.machine()}; started {started}', flush=True)
+current_bundle = bundle
+if args.upgrade_from:
+    if sys.platform != 'win32':
+        parser.error('--upgrade-from currently supports Windows only')
+    bundle = args.upgrade_from.resolve()
 package_format = args.format or ('nsis' if sys.platform == 'win32' else 'dmg' if sys.platform == 'darwin' else 'deb')
 if args.install_deb and (not sys.platform.startswith('linux') or package_format != 'deb'):
     parser.error('--install-deb requires Linux and DEB format')
@@ -191,6 +197,14 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
             if args.ui and sys.platform != 'darwin':
                 with closing(sqlite3.connect(database)) as conn:
                     assert conn.execute('SELECT name FROM workspaces WHERE name=?', (marker,)).fetchone() == (marker,)
+            if launch == 0 and args.upgrade_from:
+                installer = next(current_bundle.glob('msi/*.msi' if package_format == 'msi' else 'nsis/*.exe'))
+                if package_format == 'msi':
+                    subprocess.run(['msiexec', '/i', str(installer), '/qn', '/norestart', f'INSTALLDIR={install}', '/L*v', str(root / 'msi-upgrade.log')], check=True, timeout=180)
+                else:
+                    subprocess.run([str(installer), '/S', f'/D={install}'], check=True, timeout=180)
+                assert executable.exists(), 'Upgrade lost executable'
+                print('PASS: previous 0.1.0 installer replaced with beta candidate; restart and persistence follow', flush=True)
             if launch == 0:
                 # Isolated database fixture, not a claim of UI-driven persistence.
                 with closing(sqlite3.connect(database)) as conn:

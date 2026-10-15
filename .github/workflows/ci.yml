@@ -11,6 +11,7 @@ on:
         default: false
 permissions:
   contents: read
+  actions: read
 jobs:
   frontend:
     runs-on: ubuntu-24.04
@@ -168,11 +169,26 @@ jobs:
       - name: AppImage FUSE-free initialization and restart
         if: runner.os == 'Linux'
         run: dbus-run-session -- xvfb-run -a python3 scripts/package-smoke.py src-tauri/target/${{ matrix.target }}/release/bundle --format appimage --ui
-      - name: MSI install, restart and uninstall
+      - name: Download verified internal Windows 0.1.0 upgrade baseline
         if: runner.os == 'Windows'
-        run: python3 scripts/package-smoke.py src-tauri/target/${{ matrix.target }}/release/bundle --format msi --ui
-      - name: Packaged native initialization (Windows/macOS)
-        if: runner.os != 'Linux'
+        uses: actions/download-artifact@v4
+        with:
+          name: forma-x86_64-pc-windows-msvc
+          path: upgrade-baseline
+          run-id: 38793649445
+          github-token: ${{ github.token }}
+      - name: Record Windows upgrade baseline checksums
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Get-ChildItem upgrade-baseline -Recurse -File | Get-FileHash -Algorithm SHA256 | Format-List
+      - name: MSI install, upgrade, restart and uninstall
+        if: runner.os == 'Windows'
+        run: python3 scripts/package-smoke.py src-tauri/target/${{ matrix.target }}/release/bundle --format msi --ui --upgrade-from upgrade-baseline
+      - name: NSIS install, upgrade, restart and uninstall
+        if: runner.os == 'Windows'
+        run: python3 scripts/package-smoke.py src-tauri/target/${{ matrix.target }}/release/bundle --ui --upgrade-from upgrade-baseline
+      - name: DMG metadata, native launch, restart and AX availability
+        if: runner.os == 'macOS'
         run: python3 scripts/package-smoke.py src-tauri/target/${{ matrix.target }}/release/bundle --ui
       - name: Preserve package diagnostics (sample data only; no database or core uploads)
         if: always()
