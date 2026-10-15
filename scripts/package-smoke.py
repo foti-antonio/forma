@@ -155,6 +155,10 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
             result.check_returncode()
         process.wait(timeout=20)
         assert process.returncode == 0, f'Nonzero graceful exit: {process.returncode}'
+        if sys.platform.startswith('linux'):
+            # WebKit workers can exit just after their parent; allow journal events
+            # to arrive without waiting for an entire core file to be processed.
+            time.sleep(2)
         print('PASS: ordinary native close exited 0')
         return result.returncode == 0
 
@@ -253,7 +257,10 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
                 with (evidence / 'journal.log').open('w') as output:
                     subprocess.run(['journalctl', '--since', started, '--no-pager'], stdout=output, stderr=subprocess.STDOUT, timeout=30)
                 journal = (evidence / 'journal.log').read_text()
-                if 'dumped core' in journal and ('WebKit' in journal or 'forma' in journal):
+                crash_lines = [line for line in journal.splitlines()
+                               if any(name in line.lower() for name in ('webkit', 'forma'))
+                               and any(event in line.lower() for event in ('dumped core', 'segfault', 'terminated abnormally'))]
+                if crash_lines:
                     raise RuntimeError('Native crash metadata observed; inspect package-evidence journal')
         if sys.platform == 'win32' and data.exists():
             # Only reached after the fresh hosted directory precondition passed.
