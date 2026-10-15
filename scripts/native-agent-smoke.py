@@ -151,9 +151,11 @@ def assert_snapshot_matches(path):
 
 def launch():
     global process
+    start = time.monotonic()
     process = subprocess.Popen([str(binary)], env=env, stdout=log, stderr=log)
     until(focused, "native window focus")
     visible("Projects")
+    print(f"Native startup to focused window and visible Projects: {time.monotonic() - start:.2f}s (includes OCR)", flush=True)
     time.sleep(0.5)
 
 
@@ -171,6 +173,153 @@ def search(value):
     keys("/")
     text(value)
     time.sleep(0.6)
+
+
+def app_nodes():
+    context = GLib.MainContext.default()
+    while context.pending():
+        context.iteration(False)
+    desktop = Atspi.get_desktop(0)
+    for index in range(desktop.get_child_count()):
+        app = desktop.get_child_at_index(index)
+        if app and app.get_process_id() == process.pid:
+            return list(descendants(app))
+    return []
+
+
+def control(name, roles=None):
+    def find():
+        return next((n for n in app_nodes() if n.get_name() == name
+                     and (roles is None or n.get_role_name() in roles)
+                     and n.get_state_set().contains(Atspi.StateType.ENABLED)), None)
+    until(lambda: find() is not None, 'accessible control: ' + name)
+    return find()
+
+
+def click(name):
+    if not focused():
+        raise RuntimeError('App lost focus before accessible action')
+    node = control(name, ('button', 'toggle button', 'unknown'))
+    assert Atspi.Action.do_action(node, 0), 'Accessible action failed: ' + name
+    time.sleep(.3)
+
+
+def fill(name, value):
+    node = control(name, ('entry', 'text'))
+    assert Atspi.Component.grab_focus(node), 'Cannot focus ' + name
+    keys('-M', 'ctrl', '-k', 'a', '-m', 'ctrl')
+    text(value)
+
+
+def choose_executable(name, title, path):
+    global native_dialog
+    node = control(name, ('button',))
+    assert Atspi.Component.grab_focus(node)
+    native_dialog = title
+    pick_native(path)
+    until(lambda: active().get('pid') == process.pid, 'return from native executable picker')
+    native_dialog = None
+
+
+def beta_qa():
+    # Public accessibility actions drive the real WebView, never JS evaluation,
+    # IPC injection, SQL mutations or user repositories.
+    click('Agent smoke engine')
+    click('New issue')
+    fill('Title', 'Beta queued task')
+    save()
+    until(lambda: rows("SELECT count(*) FROM issues WHERE title='Beta queued task'") == [(1,)], 'saved queue issue')
+    click('Beta queued task')
+    click('AI Agent')
+    click('Preview agent task')
+    click('Approve & add to queue')
+    until(lambda: rows("SELECT count(*) FROM agent_queue WHERE status='Approved'") == [(1,)], 'approved queued task without launch')
+    assert rows('SELECT count(*) FROM agent_runs') == [(3,)]
+    screenshot('beta-queue-approved')
+    keys('-k', 'Escape')
+    click('AI agents & runs')
+    click('Approved task queue')
+    screenshot('beta-queue-before-dispatch')
+    click('Start Approved Queue')
+    until(lambda: rows("SELECT count(*) FROM agent_runs WHERE status='Completed'") == [(2,)], 'native queued execution')
+    screenshot('beta-queue-started')
+    click('Stop queue dispatch')
+    keys('-k', 'Escape')
+    click('Beta queued task')
+    click('AI Agent')
+    click('Inspect result')
+    choose_executable('Choose & authorize test executable…', 'Authorize independent test runner executable', fixture)
+    fill('Arguments (JSON array, no shell expansion)', '["--forma-test"]')
+    click('Save & preview independent tests')
+    assert rows('SELECT count(*) FROM independent_tests') == [(0,)]
+    click('Approve & run independent tests')
+    until(lambda: rows("SELECT count(*) FROM independent_tests WHERE status='Completed'") == [(1,)], 'approved independent test')
+    screenshot('beta-independent-tests')
+    click('Accept for manual integration')
+    keys('-k', 'Escape')
+    worktree = Path(rows("SELECT worktree FROM agent_runs WHERE issue_id=(SELECT id FROM issues WHERE title='Beta queued task')")[0][0])
+    # Preserve only this compiled fixture's known generated files before cleanup.
+    preserved = root / 'preserved-queue-result'
+    preserved.mkdir()
+    expected = {'agent-result.txt', 'received-args.txt', 'process-id.txt', 'independent-arguments.txt'}
+    actual = {p.name for p in worktree.iterdir() if p.name not in ('.git', 'tracked')}
+    assert actual == expected, actual
+    for name in expected:
+        (worktree / name).rename(preserved / name)
+    click('AI agents & runs')
+    click('Worktree Management')
+    click('Clean up reviewed worktree…')
+    screenshot('beta-cleanup-confirmation')
+    click('Delete clean worktree')
+    until(lambda: not worktree.exists(), 'confirmed native cleanup')
+    screenshot('beta-cleanup-complete')
+    keys('-k', 'Escape')
+    click('All projects')
+    click('Rename workspace')
+    fill('Workspace name', 'Beta QA studio')
+    click('Save changes')
+    until(lambda: rows('SELECT name FROM workspaces') == [('Beta QA studio',)], 'workspace rename')
+    click('Edit Agent smoke engine')
+    fill('Project name', 'Beta QA engine')
+    click('Save changes')
+    until(lambda: rows('SELECT name FROM projects') == [('Beta QA engine',)], 'project edit')
+    click('light theme')
+    until(lambda: rows('SELECT theme FROM app_state') == [('light',)], 'light theme persisted')
+    screenshot('beta-light-projects')
+    click('dark theme')
+    until(lambda: rows('SELECT theme FROM app_state') == [('dark',)], 'dark theme persisted')
+    screenshot('beta-dark-projects')
+    # Resize this test window only; never modify desktop configuration.
+    subprocess.run(['hyprctl', 'dispatch', 'setfloating', f'pid:{process.pid}'], check=True, stdout=subprocess.DEVNULL)
+    subprocess.run(['hyprctl', 'dispatch', 'resizewindowpixel', f'exact 760 540,pid:{process.pid}'], check=True, stdout=subprocess.DEVNULL)
+    time.sleep(.8)
+    w = active()
+    assert w['size'] == [760, 540], w['size']
+    click('Beta QA engine')
+    click('Board')
+    screenshot('beta-small-board')
+    click('List')
+    click('Beta queued task')
+    click('Preview Markdown')
+    control('Write Markdown', ('button',))
+    screenshot('beta-small-markdown')
+    keys('-k', 'Escape')
+    stop()
+    launch()
+    assert rows('SELECT theme FROM app_state') == [('dark',)]
+    assert rows("SELECT count(*) FROM agent_queue WHERE status='Approved'") == [(0,)]
+    click('Delete Beta QA engine')
+    screenshot('beta-project-delete-confirmation')
+    click('Cancel')
+    assert rows('SELECT count(*) FROM projects') == [(1,)]
+    click('Delete Beta QA engine')
+    click('Delete permanently')
+    until(lambda: rows('SELECT count(*) FROM projects') == [(0,)], 'confirmed project deletion')
+    click('Delete workspace')
+    click('Delete permanently')
+    until(lambda: rows('SELECT count(*) FROM workspaces') == [(0,)], 'confirmed workspace deletion')
+    screenshot('beta-empty-after-delete')
+    print('PASS: native queue approval/dispatch/stop, independent test approval, worktree cleanup confirmation, workspace rename/delete, project edit/delete, light/dark persistence, 760x540 Board/Markdown and restart.', flush=True)
 
 
 print(f"Native agent smoke artifacts: {root}", flush=True)
@@ -317,6 +466,8 @@ try:
     assert rows("PRAGMA integrity_check") == [("ok",)]
     assert rows("PRAGMA foreign_key_check") == []
     print("PASS: native executable selection, approval, isolated simulated CLI run, diff review/acceptance, cancellation, owner-crash descendant cleanup and interrupted restart history.")
+    if '--beta' in sys.argv:
+        beta_qa()
 finally:
     if process is not None and process.poll() is None:
         stop()

@@ -152,7 +152,10 @@ desktop-specific smoke is opt-in, not a headless CI test.
 Run `python3 scripts/native-agent-smoke.py src-tauri/target/debug/forma` for
 agent executable selection, approval, worktree execution with a compiled simulated
 CLI, result acceptance, cancellation, forced-exit cleanup and restart history. This is native UI verification; real
-provider verification is recorded separately in M05.
+provider verification is recorded separately in M05. Add `--beta` for the M07
+accessibility-driven queue/independent-test/cleanup flow, workspace/project
+edit/delete, appearance persistence, and minimum-window checks. It uses the
+compiled fixture and an isolated repository; keep Forma focused throughout.
 Run `python3 scripts/native-git-smoke.py src-tauri/target/debug/forma` for a separate
 real-repository flow covering native folder connection, confirmed branch/commit
 links and restart persistence. It additionally requires Python GObject bindings

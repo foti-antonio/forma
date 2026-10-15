@@ -1,3 +1,4 @@
+import { version } from '../../package.json';
 import { AgentHub } from '../features/agents/Agents';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -110,7 +111,7 @@ export default function App() {
           <span className="brand-mark">
             <Layers size={21} />
           </span>
-          forma<span className="version">M06</span>
+          forma<span className="version">{version}</span>
         </div>
         <div className="workspace-switcher">
           <label htmlFor="workspace-select" className="eyebrow">
