@@ -55,6 +55,9 @@ fn validate(conn: &Connection) -> Result<()> {
             "Backup integrity or foreign-key validation failed.",
         ));
     }
+    if version == 4 && conn.prepare("SELECT 1 FROM git_links l JOIN issues i ON i.id=l.issue_id WHERE l.project_id<>i.project_id LIMIT 1")?.exists([])? {
+        return Err(AppError::validation("Backup contains a Git link outside its issue project."));
+    }
     Ok(())
 }
 impl Service {

@@ -458,3 +458,61 @@ fn reads_do_not_execute_repository_hooks_filters_or_fsmonitor() {
         .unwrap();
     assert!(!marker.exists());
 }
+
+#[test]
+fn backup_rejects_git_issue_scope_tampering() {
+    let (dir, mut s, p, issue) = setup();
+    let (repo, oid) = fixture(&dir.path().join("repo"));
+    let r = s.git_connect(&p, repo.workdir().unwrap()).unwrap();
+    s.git_link(input(&p, &issue, &r, "commit", &oid.to_string()))
+        .unwrap();
+    let w = s.snapshot().unwrap().active_workspace_id.unwrap();
+    let other = s
+        .save_project(
+            None,
+            ProjectInput {
+                workspace_id: w,
+                name: "Other scope".into(),
+                description: "".into(),
+                icon: "code".into(),
+                color: "#123456".into(),
+                status: "active".into(),
+            },
+        )
+        .unwrap()
+        .projects
+        .into_iter()
+        .find(|x| x.id != p)
+        .unwrap()
+        .id;
+    let backup = dir.path().join("scope.forma-backup");
+    s.export_backup(&backup).unwrap();
+    let c = rusqlite::Connection::open(&backup).unwrap();
+    let trigger: String = c
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE name='issue_validate_update'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    c.execute_batch("DROP TRIGGER issue_validate_update")
+        .unwrap();
+    c.execute(
+        "UPDATE issues SET project_id=?1 WHERE id=?2",
+        rusqlite::params![other, issue.id],
+    )
+    .unwrap();
+    c.execute_batch(&trigger).unwrap();
+    assert!(!c
+        .prepare("PRAGMA foreign_key_check")
+        .unwrap()
+        .exists([])
+        .unwrap());
+    drop(c);
+    assert!(s
+        .prepare_restore(&backup)
+        .unwrap_err()
+        .message
+        .contains("outside its issue project"));
+    assert_eq!(s.git_links(&p, &issue.id).unwrap().len(), 1);
+}
