@@ -32,7 +32,7 @@ Genuine Linux desktop captures of this beta with an isolated sample workspace.
 | -------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | ![Forma projects in light mode](docs/screenshots/projects-light.png) | ![Forma projects in dark mode](docs/screenshots/projects-dark.png) |
 
-Download the unpublished [six-installer candidate](https://github.com/foti-antonio/forma/actions/runs/38807628298/artifacts/12007393471)
+Download the unpublished [six-installer candidate](https://github.com/foti-antonio/forma/actions/runs/38812171147/artifacts/12009217865)
 and verify its [SHA-256 checksums](docs/releases/v0.1.0-beta.1.SHA256SUMS).
 See [M07](M07.md) for the exact source and remaining distribution gates.
 
