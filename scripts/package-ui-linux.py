@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""AT-SPI-only packaged workspace create/restart/close check; no injected IPC."""
+"""AT-SPI and focus-scoped X11 packaged workspace create/restart/close check; no injected IPC."""
 import sys
+import subprocess
 import time
 import gi
 
@@ -46,16 +47,20 @@ def named(name, role=None):
 if phase == 'create':
     button = until(lambda: named('Create workspace', 'push button') or named('Create workspace', 'button'), 'welcome button')
     assert Atspi.Action.do_action(button, 0)
-    entry = until(lambda: named('Workspace name'), 'workspace input')
-    assert Atspi.EditableText.set_text_contents(entry, marker)
+    entry = until(lambda: next((n for n in nodes() if n.get_name() == 'Workspace name' and n.get_state_set().contains(Atspi.StateType.EDITABLE)), None), 'workspace input')
+    # WebKit HTML inputs do not expose AT-SPI EditableText. Focus using the
+    # accessibility API, then deliver ordinary X11 input only to this app.
+    assert Atspi.Component.grab_focus(entry)
+    focused = subprocess.check_output(['xdotool', 'getwindowfocus'], text=True).strip()
+    owner = subprocess.check_output(['xdotool', 'getwindowpid', focused], text=True).strip()
+    assert int(owner) == pid, 'Refusing keyboard input outside the isolated app'
+    subprocess.run(['xdotool', 'type', '--clearmodifiers', marker], check=True)
     button = until(lambda: next((n for n in nodes() if n.get_name() == 'Create workspace' and n.get_role_name() in ('push button', 'button') and n.get_state_set().contains(Atspi.StateType.ENABLED)), None), 'submit')
     assert Atspi.Action.do_action(button, 0)
-else:
-    until(lambda: any(marker in (n.get_name() or '') for n in nodes()), 'restarted workspace')
+until(lambda: any(marker in (n.get_name() or '') for n in nodes()), 'persisted workspace')
 until(lambda: named('Export backup'), 'loaded workspace')
 # Close through the window manager, scoped to the app's own X11 PID.
 # AT-SPI verifies rendered content; EWMH requests ordinary window close.
-import subprocess
 subprocess.run(['wmctrl', '-i', '-c', hex(int(subprocess.check_output(
     ['xdotool', 'search', '--onlyvisible', '--pid', str(pid)], text=True).splitlines()[0]))], check=True)
 print('PASS: AT-SPI workspace ' + phase + ' and window close requested')
