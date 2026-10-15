@@ -44,7 +44,7 @@ def focused():
     window = active()
     return window.get("pid") == process.pid or (
         native_dialog is not None and window.get("title") == native_dialog
-        and window.get("class") in ("xdg-desktop-portal-gtk", "org.freedesktop.impl.portal.desktop.gtk", "org.gnome.Nautilus", "zenity")
+        and window.get("class") in ("xdg-desktop-portal-gtk", "org.freedesktop.impl.portal.desktop.gtk")
     )
 
 
@@ -89,6 +89,16 @@ def rows(sql):
         return connection.execute(sql).fetchall()
 
 
+def assert_snapshot_matches(path):
+    with sqlite3.connect(f"file:{database}?mode=ro", uri=True) as live, \
+            sqlite3.connect(f"file:{path}?mode=ro", uri=True) as backup:
+        tables = [r[0] for r in live.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")]
+        for table in tables:
+            identifier = '"' + table.replace('"', '""') + '"'
+            assert sorted(live.execute(f"SELECT * FROM {identifier}").fetchall(), key=repr) == sorted(
+                backup.execute(f"SELECT * FROM {identifier}").fetchall(), key=repr), table
+
+
 def launch():
     global process
     process = subprocess.Popen([str(binary)], env=env, stdout=log, stderr=log)
@@ -122,7 +132,7 @@ try:
     text("smoke studio")
     keys("-k", "Return")
     until(lambda: rows("SELECT name FROM workspaces") == [("smoke studio",)], "workspace creation")
-    visible("Make room")
+    visible("smoke studio")
     tabs(1, backwards=True)
     keys("-k", "Return")
     visible("Project name")
@@ -223,16 +233,10 @@ try:
         keys("/")
         tabs(11, backwards=True)
         native_dialog = "Export Forma backup"
-        keys("-k", "Return")
-        until(lambda: active().get("title") == native_dialog, "native export dialog")
-        screenshot("export-dialog")
-        keys("-M", "ctrl", "-k", "a", "-m", "ctrl")
         backup_path = root / "native.forma-backup"
-        text(str(backup_path))
-        keys("-k", "Return")
-        time.sleep(0.7)
-        if active().get("title") == native_dialog:
-            keys("-M", "alt", "-k", "s", "-m", "alt")
+        # One virtual keymap must cover GTK's creation and its input.
+        keys("-k", "Return", "-s", "1800", "-M", "ctrl", "-k", "a", "-m", "ctrl",
+             "-d", "30", str(backup_path), "-k", "Return")
         until(lambda: backup_path.exists(), "native snapshot export")
         until(lambda: active().get("pid") == process.pid, "return from native export dialog")
         native_dialog = None
@@ -248,11 +252,8 @@ try:
         keys("/")
         tabs(10, backwards=True)
         native_dialog = "Select Forma backup"
-        keys("-k", "Return")
-        until(lambda: active().get("title") == native_dialog, "native restore dialog")
-        keys("-M", "ctrl", "-k", "l", "-m", "ctrl")
-        text(str(backup_path))
-        keys("-k", "Return")
+        keys("-k", "Return", "-s", "1800", "-M", "ctrl", "-k", "l", "-m", "ctrl",
+             "-M", "ctrl", "-k", "a", "-m", "ctrl", "-d", "30", str(backup_path), "-k", "Return", "-s", "1200", "-k", "Return")
         until(lambda: active().get("pid") == process.pid, "return from native restore dialog")
         native_dialog = None
         visible("Replace all local data")
@@ -264,6 +265,12 @@ try:
         visible("Data restored")
         screenshot("restore-complete")
         assert rows("PRAGMA integrity_check") == [("ok",)]
+        assert_snapshot_matches(backup_path)
+        recovery_path = next(database.parent.glob("forma-recovery-*.forma-backup"))
+        with sqlite3.connect(f"file:{recovery_path}?mode=ro", uri=True) as recovery:
+            assert recovery.execute("SELECT count(*) FROM issues").fetchone() == (3,)
+            assert recovery.execute("PRAGMA integrity_check").fetchone() == ("ok",)
+            assert recovery.execute("PRAGMA foreign_key_check").fetchall() == []
         print("PASS: native export and restore file dialogs, explicit confirmation, recovery snapshot and frontend refresh.")
     print("PASS: workspace/project/issue create, issue edit, label assignment, subtask, filters, native keyboard Board movement and restart of view/order/status; SQLite integrity and foreign keys verified.")
 finally:

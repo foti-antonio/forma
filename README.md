@@ -102,8 +102,12 @@ scripts/native-smoke.py` exercises real native forms and restart persistence.
 Build the debug binary first with `pnpm tauri build --debug --no-bundle` and
 install `wtype`, `grim`, and `tesseract`. Leave the test window focused; the script
 aborts before sending keys to another app. It uses temporary app-data and prints
-the artifact directory. This desktop-specific smoke is opt-in, not a headless CI
-test.
+the artifact directory. Add the backup extension with
+`python3 scripts/native-smoke.py src-tauri/target/debug/forma --backup` to exercise
+native file dialogs, explicit replacement confirmation, recovery and frontend
+refresh. Input is restricted to Forma and its specifically named GTK portal
+dialogs; grouped keyboard sequences preserve GTK’s virtual keymap. This
+desktop-specific smoke is opt-in, not a headless CI test.
 
 Vitest disables Node's experimental global Web Storage so jsdom provides the
 browser storage implementation, including on Node 26.

@@ -1,6 +1,6 @@
 # Security policy
 
-M01 (0.1.x) is pre-release software. Security fixes target the latest development
+Forma 0.1.x is pre-release software. Security fixes target the latest development
 revision; there are no long-term support branches yet.
 
 Please use the repository's GitHub **Security → Report a vulnerability** option
@@ -17,3 +17,8 @@ filesystem, shell, HTTP, or SQL plugin. Rust exposes a fixed command set with
 validated inputs and parameterized queries. Remote content is not loaded.
 The CSP restricts script execution and IPC origins. Release installers are not
 yet trusted-signed; see README for distribution limitations.
+
+Backups and recovery snapshots are also unencrypted. Rust-owned native dialogs
+select files; the WebView cannot supply paths. Restore validates schema, format,
+integrity and foreign keys before explicit replacement confirmation, and keeps
+a recovery snapshot. See [BACKUP](docs/BACKUP.md).

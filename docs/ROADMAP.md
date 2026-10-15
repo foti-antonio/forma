@@ -29,9 +29,9 @@ and platform evidence and BACKUP.md for compatibility/recovery.
 
 ## M04 — Recommended
 
-1. Exercise Windows and both macOS architectures and their native file dialogs,
-   installer/launch behavior, signing and notarization; run hosted CI on the full
-   implementation once it is committed and available to Actions.
+1. Exercise Windows and both macOS native file dialogs, installer/launch behavior,
+   signing and notarization. Maintain the hosted matrix exercised for M03; build
+   results and interactive runtime verification are separate gates.
 2. Measure larger/real datasets; evaluate FTS for literal search, cursor paging,
    cancellation and dedicated database workers using measured needs.
 3. Add richer Markdown, bulk operations, multiple label selection and optional
