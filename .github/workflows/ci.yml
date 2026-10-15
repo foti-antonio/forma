@@ -172,6 +172,12 @@ jobs:
       - name: AppImage FUSE-free initialization and restart
         if: runner.os == 'Linux'
         run: dbus-run-session -- xvfb-run -a python3 scripts/package-smoke.py src-tauri/target/${{ matrix.target }}/release/bundle --format appimage --ui
+      - name: Fresh MSI install, native UI persistence, restart and uninstall
+        if: runner.os == 'Windows'
+        run: python3 scripts/package-smoke.py src-tauri/target/${{ matrix.target }}/release/bundle --format msi --ui
+      - name: Fresh NSIS install, native UI persistence, restart and uninstall
+        if: runner.os == 'Windows'
+        run: python3 scripts/package-smoke.py src-tauri/target/${{ matrix.target }}/release/bundle --format nsis --ui
       - name: Download verified internal Windows 0.1.0 upgrade baseline
         if: runner.os == 'Windows'
         uses: actions/download-artifact@v4
