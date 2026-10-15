@@ -39,7 +39,7 @@ a transaction and sets its schema version. Migration 002 upgrades issues, alloca
 keys, backfills per-project numbers deterministically, and adds relationship
 constraints and activity lookup indexes. Each migration and its version update
 commit together. Startup skips applied versions and rejects schemas newer than
-version 4. Migration 003 adds project view state, backup format metadata, nullable appearance
+version 6. Migration 003 adds project view state, backup format metadata, nullable appearance
 state (null imports the M02 preference), and a measured board-order index.
 Migrations 001 and 002 are unchanged; tests upgrade populated v1 fixtures and
 verify that a failed upgrade rolls back and can be retried.
@@ -178,3 +178,53 @@ requests and retained arrays are bounded; full status scans remain proportional
 to working-tree size and can delay database access while holding the mutex.
 See [GIT](GIT.md) for count semantics, historical branch policy and security
 boundaries, and [M04](../M04.md) for actual verification and timings.
+
+## M05/M06 agent execution
+
+The agent feature coordinator and typed IPC call blocking Rust commands. Separate
+provider adapters construct fixed arguments from backend policy; no frontend
+shell strings or credentials are accepted. Native executable selection stores a
+canonical path and SHA-256 identity. Single-use, expiring backend previews bind
+approval to saved issue/settings/repository HEAD. A narrow libgit2 service creates
+UUID branches/worktrees in app-data. A persisted default-one, maximum-two execution budget bounds resources;
+a SQLite partial index additionally prevents duplicate active issue runs.
+
+A Rust supervisor owns each process group/job and a separate SQLite connection.
+Bounded stdout/stderr channels apply redaction before publishing log snapshots.
+Cancellation, timeout and process exit terminate descendants; Unix pipe watchdogs
+and Windows kill-on-close jobs handle owner exit. Startup marks incomplete rows
+Interrupted without resuming. An exclusive desktop app-data lock prevents two
+owners. Migration 005 stores settings, run lifecycle and review metadata. Backup
+format 3 upgrades validated schema-3/4 snapshots and strips executable, repository
+and retained worktree path authorization. Restore/deletion requires an idle engine.
+
+Worktrees are not OS sandboxes. Codex enforces workspace-write restrictions for
+commands; Claude file tools require separate per-run host-risk consent. Agent
+outputs render as text, and acceptance only records review for manual integration.
+See [AGENTS-INTEGRATION](AGENTS-INTEGRATION.md) for security limitations, lifecycle,
+retention, bounds and supported interfaces; [M05](../M05.md) records verification.
+
+## M06 scheduler, tests and cleanup
+
+`execution_service.rs` coordinates persisted approval snapshots separately from
+run creation. Explicit dispatch sessions freeze membership in memory. A Rust
+worker fills available slots and stops when that set is exhausted or the user
+stops dispatch. No startup or read path creates a dispatcher. Each launch repeats
+capability, digest, task/context, repository and permission checks. A service
+mutex serializes reservations and UUID worktree creation; the existing per-issue
+SQLite partial index remains authoritative. Agents own separate process groups,
+watchdogs/jobs, cancellation flags, bounded channels and SQLite connections.
+
+`test_execution.rs` authorizes native project test executables, stores structured
+arguments and requires a separate exact-command/cwd preview and single-use
+approval. Tests share the configured process budget and supervision engine but
+have separate persistent results and duration; provider reports stay distinct.
+`worktree_service.rs` verifies ownership and clean/reviewed state before confirmed
+libgit2 cleanup, retaining branches and historical metadata. Disk scans are bounded
+and never traverse symlinks. Failed/interrupted cleanup can be retried explicitly.
+
+Append-only migration 006 adds queue, concurrency, cleanup and independent-test
+state. Backup format 4 accepts exact released schema 3/4/5 snapshots, migrates in
+staging and strips every executable/repository/worktree authorization. Startup
+invalidates unused queue approvals and interrupts unfinished agents/tests. See
+[MULTI-AGENT](MULTI-AGENT.md) for invariants and [M06](../M06.md) for evidence.

@@ -16,7 +16,7 @@ fn copy(source: &Connection, destination: &mut Connection) -> Result<()> {
 }
 fn validate(conn: &Connection) -> Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
-    if version != 3 && version != 4 {
+    if !(3..=6).contains(&version) {
         return Err(AppError::validation(
             "Backup schema is not supported by this Forma version.",
         ));
@@ -26,8 +26,14 @@ fn validate(conn: &Connection) -> Result<()> {
     reference.execute_batch(include_str!("../migrations/001_initial.sql"))?;
     reference.execute_batch(include_str!("../migrations/002_issues.sql"))?;
     reference.execute_batch(include_str!("../migrations/003_productivity.sql"))?;
-    if version == 4 {
+    if version >= 4 {
         reference.execute_batch(include_str!("../migrations/004_git.sql"))?;
+    }
+    if version >= 5 {
+        reference.execute_batch(include_str!("../migrations/005_agents.sql"))?;
+    }
+    if version >= 6 {
+        reference.execute_batch(include_str!("../migrations/006_execution.sql"))?;
     }
     fn schema(c: &Connection) -> Result<Vec<(String, String)>> {
         Ok(c.prepare(
@@ -46,8 +52,11 @@ fn validate(conn: &Connection) -> Result<()> {
         [],
         |r| r.get(0),
     )?;
-    if format != (if version == 3 { 1 } else { 2 }) {
+    if format != version - 2 {
         return Err(AppError::validation("Unsupported backup format version."));
+    }
+    if version >= 5 && conn.prepare("SELECT 1 FROM agent_runs a JOIN issues i ON i.id=a.issue_id JOIN git_repositories r ON r.id=a.repository_id WHERE i.project_id<>r.project_id LIMIT 1")?.exists([])? {
+        return Err(AppError::validation("Backup contains an agent run outside its issue project."));
     }
     let integrity: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
     if integrity != "ok" || conn.prepare("PRAGMA foreign_key_check")?.exists([])? {
@@ -55,7 +64,7 @@ fn validate(conn: &Connection) -> Result<()> {
             "Backup integrity or foreign-key validation failed.",
         ));
     }
-    if version == 4 && conn.prepare("SELECT 1 FROM git_links l JOIN issues i ON i.id=l.issue_id WHERE l.project_id<>i.project_id LIMIT 1")?.exists([])? {
+    if version >= 4 && conn.prepare("SELECT 1 FROM git_links l JOIN issues i ON i.id=l.issue_id WHERE l.project_id<>i.project_id LIMIT 1")?.exists([])? {
         return Err(AppError::validation("Backup contains a Git link outside its issue project."));
     }
     Ok(())
@@ -83,7 +92,7 @@ impl Service {
         let staging = tempfile::NamedTempFile::new_in(parent).map_err(io)?;
         let mut destination = Connection::open(staging.path())?;
         copy(&self.repo.conn, &mut destination)?;
-        destination.execute("INSERT OR REPLACE INTO backup_metadata(singleton,format_version,created_at) VALUES(1,2,?1)", [chrono::Utc::now().to_rfc3339()])?;
+        destination.execute("INSERT OR REPLACE INTO backup_metadata(singleton,format_version,created_at) VALUES(1,4,?1)", [chrono::Utc::now().to_rfc3339()])?;
         destination.pragma_update(None, "journal_mode", "DELETE")?;
         validate(&destination)?;
         destination.close().map_err(|(_, e)| AppError::from(e))?;
@@ -94,6 +103,7 @@ impl Service {
     /// Stage a private snapshot so changing the selected file after confirmation cannot
     /// change the data restored. No archive extraction or filenames inside the backup.
     pub fn prepare_restore(&mut self, path: &Path) -> Result<()> {
+        self.agent_require_idle()?;
         self.pending_restore = None;
         let source = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
         source.execute_batch("BEGIN")?;
@@ -110,6 +120,45 @@ impl Service {
             tx.execute("UPDATE backup_metadata SET format_version=2", [])?;
             tx.commit()?;
         }
+        if version < 5 {
+            let tx = destination.transaction()?;
+            tx.execute_batch(include_str!("../migrations/005_agents.sql"))?;
+            tx.pragma_update(None, "user_version", 5)?;
+            tx.execute("UPDATE backup_metadata SET format_version=3", [])?;
+            tx.commit()?;
+        }
+        if version < 6 {
+            let tx = destination.transaction()?;
+            tx.execute_batch(include_str!("../migrations/006_execution.sql"))?;
+            tx.pragma_update(None, "user_version", 6)?;
+            tx.execute("UPDATE backup_metadata SET format_version=4", [])?;
+            tx.commit()?;
+        }
+        destination.execute(
+            "UPDATE project_test_commands SET trusted=0,executable_digest=''",
+            [],
+        )?;
+        destination.execute("UPDATE independent_tests SET status='Interrupted',ended_at=?1,result='Restored historical tests; not resumed.' WHERE status='Running'", [chrono::Utc::now().to_rfc3339()])?;
+        destination.execute("UPDATE agent_queue SET status='Invalidated',payload='',message='Restored approvals require fresh preview and approval.' WHERE status IN ('Approved','Launching')", [])?;
+        destination.execute(
+            "UPDATE agent_settings SET trusted=0,executable_digest=NULL",
+            [],
+        )?;
+        destination.execute("UPDATE agent_runs SET trusted=0", [])?;
+        // Imported output is untrusted too. Stream one bounded row at a time.
+        {
+            let mut statement = destination.prepare("SELECT id,log FROM agent_runs")?;
+            let rows = statement
+                .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
+            for row in rows {
+                let (id, log) = row?;
+                destination.execute(
+                    "UPDATE agent_runs SET log=?2 WHERE id=?1",
+                    rusqlite::params![id, crate::agent_provider::redact_block(&log)],
+                )?;
+            }
+        }
+        destination.execute("UPDATE agent_runs SET status='Interrupted',ended_at=?1,result='Restored historical run; execution was not resumed.' WHERE status IN ('Queued','Running')", [chrono::Utc::now().to_rfc3339()])?;
         // Paths in imported data never authorize filesystem access, even when a
         // malicious backup sets trusted=1. Only native folder selection reauthorizes.
         destination.execute("UPDATE git_repositories SET trusted=0", [])?;
@@ -122,6 +171,8 @@ impl Service {
         self.pending_restore = None;
     }
     pub fn restore_backup(&mut self, confirmed: bool) -> Result<String> {
+        self.agent_require_idle()?;
+        self.agents = Default::default();
         if !confirmed {
             return Err(AppError::validation(
                 "Confirm replacement of all local data.",

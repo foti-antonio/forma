@@ -178,6 +178,189 @@ fn production_ipc_contract_issue_label_subtask_activity_and_restart() {
             .len(),
         1
     );
+    // Native executable picker is represented by its Rust-only authorization
+    // result. Every preview/run/history/review action uses real production IPC.
+    app.state::<std::sync::Mutex<Service>>()
+        .lock()
+        .unwrap()
+        .agent_authorize("codex", &crate::agent_tests::fixture_executable())
+        .unwrap();
+    let providers = invoke(&w, "agent_providers", json!({})).unwrap();
+    assert!(providers
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|p| p["settings"]["provider"] == "codex" && p["available"] == true));
+    invoke(&w, "agent_save_preferences", json!({"preferred":"codex"})).unwrap();
+    assert_eq!(invoke(&w, "agent_preferred", json!({})).unwrap(), "codex");
+    let preview = invoke(
+        &w,
+        "agent_preview",
+        json!({"projectId":project,"issueId":key,"provider":"codex"}),
+    )
+    .unwrap();
+    assert!(invoke(
+        &w,
+        "agent_start",
+        json!({"token":preview["token"],"approved":false,"elevatedApproved":false})
+    )
+    .is_err());
+    let run = invoke(
+        &w,
+        "agent_start",
+        json!({"token":preview["token"],"approved":true,"elevatedApproved":false}),
+    )
+    .unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        let runs = invoke(
+            &w,
+            "agent_runs",
+            json!({"projectId":project,"issueId":key,"offset":0}),
+        )
+        .unwrap();
+        if runs[0]["status"] == "Completed" {
+            break;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "IPC run did not complete"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(30));
+    }
+    assert!(
+        invoke(&w, "agent_review", json!({"runId":run["id"]})).unwrap()["additions"]
+            .as_u64()
+            .unwrap()
+            > 0
+    );
+    invoke(
+        &w,
+        "agent_mark_reviewed",
+        json!({"runId":run["id"],"decision":"accepted"}),
+    )
+    .unwrap();
+    assert_eq!(
+        invoke(&w, "agent_recent", json!({"offset":0})).unwrap()[0]["review"],
+        "accepted"
+    );
+    invoke(&w, "agent_cancel", json!({"runId":run["id"]})).unwrap();
+    assert_eq!(invoke(&w, "agent_concurrency", json!({})).unwrap(), 1);
+    invoke(&w, "agent_set_concurrency", json!({"maximum":2})).unwrap();
+    assert!(invoke(&w, "agent_set_concurrency", json!({"maximum":3})).is_err());
+    let queued_preview = invoke(
+        &w,
+        "agent_preview",
+        json!({"projectId":project,"issueId":key,"provider":"codex"}),
+    )
+    .unwrap();
+    assert!(invoke(
+        &w,
+        "agent_enqueue",
+        json!({"token":queued_preview["token"],"approved":false,"elevatedApproved":false})
+    )
+    .is_err());
+    let task = invoke(
+        &w,
+        "agent_enqueue",
+        json!({"token":queued_preview["token"],"approved":true,"elevatedApproved":false}),
+    )
+    .unwrap();
+    assert_eq!(
+        invoke(&w, "agent_queue", json!({})).unwrap()[0]["status"],
+        "Approved"
+    );
+    invoke(&w, "agent_queue_move", json!({"taskId":task,"before":null})).unwrap();
+    invoke(&w, "agent_queue_cancel", json!({"taskId":task})).unwrap();
+    assert!(invoke(&w, "agent_start_queue", json!({"all":false}))
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .is_empty());
+    invoke(&w, "agent_queue_stop", json!({})).unwrap();
+    assert_eq!(
+        invoke(&w, "agent_worktrees", json!({"offset":0})).unwrap()[0]["run"]["id"],
+        run["id"]
+    );
+    assert!(invoke(
+        &w,
+        "agent_cleanup",
+        json!({"runId":run["id"],"confirmed":false})
+    )
+    .is_err());
+    assert_eq!(
+        invoke(&w, "test_project", json!({"runId":run["id"]})).unwrap(),
+        project
+    );
+    {
+        use tauri::Manager;
+        app.state::<std::sync::Mutex<Service>>()
+            .lock()
+            .unwrap()
+            .test_authorize(project, &crate::agent_tests::fixture_executable())
+            .unwrap();
+    }
+    let mut test_cmd = invoke(&w, "test_command", json!({"projectId":project})).unwrap();
+    test_cmd["arguments"] = json!(["--forma-test"]);
+    invoke(&w, "test_save_command", json!({"input":test_cmd})).unwrap();
+    let tp = invoke(&w, "test_preview", json!({"runId":run["id"]})).unwrap();
+    assert!(invoke(
+        &w,
+        "test_start",
+        json!({"token":tp["token"],"approved":false})
+    )
+    .is_err());
+    let tid = invoke(
+        &w,
+        "test_start",
+        json!({"token":tp["token"],"approved":true}),
+    )
+    .unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        let tests = invoke(&w, "test_runs", json!({"runId":run["id"]})).unwrap();
+        if tests[0]["status"] == "Completed" {
+            assert_eq!(tests[0]["exitCode"], 0);
+            break;
+        }
+        assert!(std::time::Instant::now() < deadline);
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    invoke(&w, "test_cancel", json!({"testId":tid})).unwrap();
+
+    // Exercise the native dispatcher command, including its independently owned
+    // app handle, rather than only calling the service scheduler directly.
+    let queued_preview = invoke(
+        &w,
+        "agent_preview",
+        json!({"projectId":project,"issueId":key,"provider":"codex"}),
+    )
+    .unwrap();
+    invoke(
+        &w,
+        "agent_enqueue",
+        json!({"token":queued_preview["token"],"approved":true,"elevatedApproved":false}),
+    )
+    .unwrap();
+    let dispatched = invoke(&w, "agent_start_queue", json!({"all":true})).unwrap();
+    assert_eq!(dispatched.as_array().unwrap().len(), 1);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        let recent = invoke(&w, "agent_recent", json!({"offset":0})).unwrap();
+        let dispatched_run = recent
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["id"] == dispatched[0]["id"])
+            .unwrap();
+        if dispatched_run["status"] == "Completed" {
+            break;
+        }
+        assert!(std::time::Instant::now() < deadline);
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    invoke(&w, "agent_queue_stop", json!({})).unwrap();
+
     let check = Service::open(&path).unwrap();
     assert_eq!(check.git_links(project, key).unwrap().len(), 1);
     invoke(&w, "git_disconnect", json!({"projectId":project})).unwrap();

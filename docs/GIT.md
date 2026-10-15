@@ -1,5 +1,9 @@
 # Local Git integration (M04)
 
+This document describes repository inspection and issue links. M05 separately
+adds approved branch/worktree creation for coding agents; see
+[AGENTS-INTEGRATION](AGENTS-INTEGRATION.md) for that execution boundary.
+
 Expand **Git repository** in a project and choose **Connect repository…**. Select
 an existing repository root with the native directory picker. Forma accepts
 normal repositories, linked worktrees, `.git` directories and bare repositories;
@@ -110,3 +114,13 @@ are outside M04. Large status scans allocate libgit2’s full status list, and
 cancellation is not yet implemented. Measurements and platform verification are
 recorded in [M04](../M04.md). Separate workers/cancellation and native Windows/macOS
 interactive testing are recommended before adding more repository operations.
+
+## M06 concurrent worktree lifecycle
+
+Agent execution creates one UUID branch/worktree per run through libgit2. The
+service serializes creation even for concurrent tasks in the same repository.
+The primary working tree is never the execution directory. Worktree Management
+allows explicit opening and confirmed cleanup of reviewed, clean, known linked
+worktrees; branches and historical run metadata remain. Unknown, modified, ignored,
+locked, symlinked and unreviewed contents block cleanup. Worktrees share Git
+metadata and are not security sandboxes. See [MULTI-AGENT](MULTI-AGENT.md).

@@ -4,13 +4,17 @@ use crate::{
 };
 use rusqlite::params;
 pub struct Service {
+    pub(crate) agents: crate::agent_service::Agents,
     pub(crate) repo: Repository,
     pub(crate) pending_restore: Option<tempfile::NamedTempFile>,
 }
 impl Service {
     pub fn open(path: &std::path::Path) -> Result<Self> {
+        let repo = Repository::open(path)?;
+        repo.agent_recover()?;
         Ok(Self {
-            repo: Repository::open(path)?,
+            agents: Default::default(),
+            repo,
             pending_restore: None,
         })
     }
@@ -57,6 +61,7 @@ impl Service {
         self.snapshot()
     }
     pub fn delete_workspace(&mut self, key: &str) -> Result<Snapshot> {
+        self.agent_require_idle()?;
         id(key)?;
         let tx = self.repo.conn.transaction()?;
         changed(tx.execute("DELETE FROM workspaces WHERE id=?1", [key])?)?;
@@ -127,6 +132,7 @@ impl Service {
         self.snapshot()
     }
     pub fn delete_project(&mut self, key: &str) -> Result<Snapshot> {
+        self.agent_require_idle()?;
         id(key)?;
         let workspace = self.repo.project_workspace(key)?;
         let now = chrono::Utc::now().to_rfc3339();

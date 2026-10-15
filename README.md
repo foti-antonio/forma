@@ -2,9 +2,11 @@
 
 A local-first desktop project manager for developers. Fast, quiet, and yours.
 
-M04 adds local Git repository inspection and confirmed branch/commit links to
-issues, alongside the Kanban, filters and native backup/restore from M01–M03. SQLite stores your data and preferences. No account or
-server is required; authentication, cloud sync and AI agents remain out of scope.
+M06 adds explicitly launched approved task queues, a conservative one-process
+budget configurable to two, independently approved project tests and safe
+management of retained agent worktrees. Git inspection, issue links, Kanban,
+filters and native backup/restore remain available. Rust and SQLite own local
+data. No Forma account or server is required.
 
 ## Develop
 
@@ -77,8 +79,24 @@ its native picker. Inspect working-tree counts, search local branches, page
 commits and refresh manually. Expand **Git activity** in a saved issue to review
 and confirm branch/commit links, including exact-identifier suggestions. One
 repository is active per project; historical links survive disconnects and
-restarts. Forma’s Git access is read-only and offline. Restored repository paths
+restarts. Git inspection is offline. Agent runs add narrowly scoped worktree/branch creation;
+provider inference may require network access. Restored repository paths
 require selecting the folder again. See [GIT](docs/GIT.md) for scope and limits.
+
+Open **AI agents & runs** for provider settings and run history. Authorize a
+trusted installed executable with the native picker and authenticate through its
+CLI outside Forma. In a saved issue, expand **AI Agent**, preview the task and
+explicitly approve immediate execution or add the task to the persistent queue. Codex uses workspace-write command restrictions;
+Claude's restricted file tools require acknowledgement of the missing OS sandbox. Monitor,
+cancel and inspect results, then accept/reject for manual integration. No commits,
+merges or pushes occur. See [AGENTS-INTEGRATION](docs/AGENTS-INTEGRATION.md) for
+permissions, supported interfaces and limitations. Open **Approved task queue**
+to **Start Next** or **Start Approved Queue**; startup never launches queued tasks.
+In **Agent settings**, the maximum simultaneous process count defaults to one and
+can explicitly be set to two. Review results to configure and separately approve
+independent tests. **Worktree Management** offers confirmed cleanup of known clean,
+reviewed worktrees while retaining branches/history. Read [MULTI-AGENT](docs/MULTI-AGENT.md)
+for scheduler rules, restoration and security limits.
 
 `pnpm dev` starts only Vite for frontend development. It intentionally displays a
 desktop-required error in a regular browser; it does not simulate persistence.
@@ -115,6 +133,10 @@ native file dialogs, explicit replacement confirmation, recovery and frontend
 refresh. Input is restricted to Forma and its specifically named GTK portal
 dialogs; grouped keyboard sequences preserve GTK’s virtual keymap. This
 desktop-specific smoke is opt-in, not a headless CI test.
+Run `python3 scripts/native-agent-smoke.py src-tauri/target/debug/forma` for
+agent executable selection, approval, worktree execution with a compiled simulated
+CLI, result acceptance, cancellation, forced-exit cleanup and restart history. This is native UI verification; real
+provider verification is recorded separately in M05.
 Run `python3 scripts/native-git-smoke.py src-tauri/target/debug/forma` for a separate
 real-repository flow covering native folder connection, confirmed branch/commit
 links and restart persistence. It additionally requires Python GObject bindings
@@ -164,10 +186,11 @@ refreshes the app. Local backups are **not encrypted**. Read [BACKUP](docs/BACKU
 for format, compatibility, rollback and recovery instructions. Avoid copying an
 open WAL database; use the built-in consistent snapshot export. Do not place real databases in the
 repository; they are ignored by Git. Deleting a workspace cascades through its
-projects, issues, labels and activity.
+projects, issues, labels, activity and agent run history. Agent worktrees remain
+for manual inspection.
 
 Read [ARCHITECTURE](docs/ARCHITECTURE.md), [ROADMAP](docs/ROADMAP.md),
 [CONTRIBUTING](CONTRIBUTING.md), [SECURITY](SECURITY.md), and the actual validation
-record in [M01](M01.md) and [M02](M02.md) and [M03](M03.md) and [M04](M04.md).
+record in [M01](M01.md) and [M02](M02.md) and [M03](M03.md) and [M04](M04.md) and [M05](M05.md) and [M06](M06.md).
 
 Licensed under [Apache-2.0](LICENSE).

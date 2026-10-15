@@ -1,3 +1,4 @@
+import { IssueAgent } from '../agents/Agents';
 import { useEffect, useRef, useState } from 'react';
 import { Dialog } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
@@ -524,7 +525,7 @@ export function IssueEditor({
         >
           <p>
             {confirm === 'delete'
-              ? 'Permanently delete this issue? Its subtasks will be kept as top-level issues.'
+              ? 'Permanently delete this issue and its agent run history? Its subtasks will be kept as top-level issues. Agent worktrees are retained for manual inspection.'
               : 'Discard your unsaved changes?'}
           </p>
           <Button
@@ -584,6 +585,7 @@ export function IssueEditor({
               Save or discard your changes before opening subtasks or archiving.
             </p>
           )}
+          <IssueAgent issue={issue} disabled={busy || dirty} />
           <IssueGitActivity
             key={issue.id}
             issue={issue}

@@ -66,7 +66,7 @@ def pick_folder(path):
     until(accept, "enabled native Select button")
 
 binary = Path(sys.argv[1] if len(sys.argv) > 1 else "src-tauri/target/debug/forma").resolve()
-root = Path(tempfile.mkdtemp(prefix="forma-m04-git-smoke-"))
+root = Path(tempfile.mkdtemp(prefix="forma-m05-git-smoke-"))
 database = root / "data/dev.forma.desktop/forma.sqlite3"
 env = dict(os.environ, XDG_DATA_HOME=str(root / "data"),
            XDG_CONFIG_HOME=str(root / "config"), XDG_CACHE_HOME=str(root / "cache"))
@@ -227,7 +227,7 @@ try:
     tabs(14)
     keys("-k", "Return")
     visible("Edit issue")
-    tabs(15)
+    tabs(16)
     keys("-k", "Return")
     time.sleep(.8)
     tabs(2)
@@ -244,7 +244,7 @@ try:
     tabs(14)
     keys("-k", "Return")
     visible("Edit issue")
-    tabs(15)
+    tabs(16)
     keys("-k", "Return")
     time.sleep(.8)
     tabs(4)
@@ -264,7 +264,7 @@ try:
     tabs(14)
     keys("-k", "Return")
     visible("Edit issue")
-    tabs(15)
+    tabs(16)
     keys("-k", "Return")
     time.sleep(.8)
     tabs(2)

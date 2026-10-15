@@ -1332,3 +1332,27 @@ textarea {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.agent-output {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 22rem;
+  overflow: auto;
+  font-size: 0.8rem;
+  padding: 1rem;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+.agent-settings {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1rem;
+  margin-block: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+.agent-run {
+  display: block;
+  padding-block: 1rem;
+}

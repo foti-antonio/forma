@@ -8,6 +8,7 @@ export function Dialog({
   onClose,
   busy = false,
   className = '',
+  onReturnFocus,
 }: {
   title: string;
   description: string;
@@ -15,6 +16,7 @@ export function Dialog({
   onClose: () => void;
   busy?: boolean;
   className?: string;
+  onReturnFocus?: () => void;
 }) {
   return (
     <DialogPrimitive.Root
@@ -27,6 +29,13 @@ export function Dialog({
         <DialogPrimitive.Overlay className="dialog-overlay" />
         <DialogPrimitive.Content
           className={'dialog-content ' + className}
+          onCloseAutoFocus={(e) => {
+            if (onReturnFocus) {
+              e.preventDefault();
+              // Let the caller re-enable controls after an async mutation.
+              setTimeout(onReturnFocus, 0);
+            }
+          }}
           onEscapeKeyDown={(e) => {
             if (busy) e.preventDefault();
           }}

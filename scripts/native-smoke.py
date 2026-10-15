@@ -175,7 +175,7 @@ try:
     keys("-k", "Return")
     visible("Edit issue")
     # WebKitGTK date controls have separate month/day/year tab stops.
-    tabs(17)
+    tabs(18)
     keys("-k", "Return")
     visible("What needs to happen")
     text("child task")
@@ -231,7 +231,7 @@ try:
     assert rows("SELECT title FROM issues WHERE parent_id IS NOT NULL") == [("child task",)]
     assert rows("PRAGMA integrity_check") == [("ok",)]
     assert rows("PRAGMA foreign_key_check") == []
-    assert rows("PRAGMA user_version") == [(4,)]
+    assert rows("PRAGMA user_version") == [(6,)]
     if "--backup" in sys.argv:
         keys("-k", "Escape")
         time.sleep(0.5)

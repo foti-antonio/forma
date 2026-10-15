@@ -13,7 +13,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [features]
 default = ["desktop"]
 ipc-tests = ["desktop", "tauri/test"]
-desktop = ["dep:tauri", "dep:tauri-build", "dep:rfd"]
+desktop = ["dep:tauri", "dep:tauri-build", "dep:rfd", "dep:opener"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [], optional = true }
@@ -27,13 +27,23 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 tempfile = "3"
 rfd = { version = "0.15", optional = true }
+opener = { version = "0.8", optional = true }
+libc = "0.2"
+command-group = "5.0.1"
+sha2 = "0.10"
+serde_json = "1"
+regex = "1"
 git2 = { version = "0.21", default-features = false }
 
 [dev-dependencies]
-serde_json = "1"
 tempfile = "3"
 
 [[bin]]
 name = "forma"
 path = "src/main.rs"
 required-features = ["desktop"]
+
+# Executable identity checks read hundreds of MiB for some native CLIs. Keep
+# SHA-256 compression optimized in debug/test builds as well as release.
+[profile.dev.package.sha2]
+opt-level = 3

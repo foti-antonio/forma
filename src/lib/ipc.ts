@@ -57,6 +57,67 @@ async function command<T>(
   return invoke<T>(name, args);
 }
 export const api = {
+  agentProviders: () => command<ProviderStatus[]>('agent_providers'),
+  agentPreferred: () => command<string>('agent_preferred'),
+  agentSavePreferences: (preferred: string) =>
+    command<void>('agent_save_preferences', { preferred }),
+  agentSaveSettings: (input: AgentSettings) =>
+    command<void>('agent_save_settings', { input }),
+  agentAuthorize: (provider: string) =>
+    command<boolean>('agent_authorize', { provider }),
+  agentPreview: (projectId: string, issueId: string, provider: string) =>
+    command<AgentPreview>('agent_preview', { projectId, issueId, provider }),
+  testProject: (runId: string) => command<string>('test_project', { runId }),
+  agentQueueStop: () => command<void>('agent_queue_stop'),
+  agentWorktrees: (offset = 0) =>
+    command<WorktreeInfo[]>('agent_worktrees', { offset }),
+  agentCleanup: (runId: string) =>
+    command<void>('agent_cleanup', { runId, confirmed: true }),
+  testCommand: (projectId: string) =>
+    command<TestCommand | null>('test_command', { projectId }),
+  testAuthorize: (projectId: string) =>
+    command<boolean>('test_authorize', { projectId }),
+  testSaveCommand: (input: TestCommand) =>
+    command<void>('test_save_command', { input }),
+  testPreview: (runId: string) =>
+    command<TestPreview>('test_preview', { runId }),
+  testStart: (token: string) =>
+    command<string>('test_start', { token, approved: true }),
+  testRuns: (runId: string) =>
+    command<IndependentTest[]>('test_runs', { runId }),
+  testCancel: (testId: string) => command<void>('test_cancel', { testId }),
+  agentConcurrency: () => command<number>('agent_concurrency'),
+  agentSetConcurrency: (maximum: number) =>
+    command<void>('agent_set_concurrency', { maximum }),
+  agentEnqueue: (token: string, elevatedApproved: boolean) =>
+    command<string>('agent_enqueue', {
+      token,
+      approved: true,
+      elevatedApproved,
+    }),
+  agentQueue: () => command<QueuedTask[]>('agent_queue'),
+  agentQueueCancel: (taskId: string) =>
+    command<void>('agent_queue_cancel', { taskId }),
+  agentQueueMove: (taskId: string, before: string | null) =>
+    command<void>('agent_queue_move', { taskId, before }),
+  agentStartQueue: (all: boolean) =>
+    command<AgentRun[]>('agent_start_queue', { all }),
+  agentStart: (token: string, elevatedApproved: boolean) =>
+    command<AgentRun>('agent_start', {
+      token,
+      approved: true,
+      elevatedApproved,
+    }),
+  agentRuns: (projectId: string, issueId: string, offset = 0) =>
+    command<AgentRun[]>('agent_runs', { projectId, issueId, offset }),
+  agentRecent: (offset = 0) => command<AgentRun[]>('agent_recent', { offset }),
+  agentCancel: (runId: string) => command<void>('agent_cancel', { runId }),
+  agentReview: (runId: string) =>
+    command<AgentReview>('agent_review', { runId }),
+  agentMarkReviewed: (runId: string, decision: 'accepted' | 'rejected') =>
+    command<void>('agent_mark_reviewed', { runId, decision }),
+  agentOpenWorktree: (runId: string) =>
+    command<void>('agent_open_worktree', { runId }),
   gitConnection: (projectId: string) =>
     command<GitRepository | null>('git_connection', { projectId }),
   gitConnect: (projectId: string) =>
@@ -264,4 +325,111 @@ export interface GitLinkInput {
   kind: 'branch' | 'commit';
   target: string;
   confirmed: boolean;
+}
+
+export interface AgentSettings {
+  provider: string;
+  executable: string | null;
+  trusted: boolean;
+  maxRuntime: number;
+  logLimit: number;
+  policy: 'restricted' | 'claude-tools';
+  requireOsIsolation?: boolean;
+}
+export interface ProviderStatus {
+  settings: AgentSettings;
+  version: string | null;
+  available: boolean;
+  message: string;
+}
+export interface AgentPreview {
+  token: string;
+  prompt: string;
+  provider: string;
+  executable: string;
+  version: string;
+  repository: string;
+  baseCommit: string;
+  policy: string;
+  maxRuntime: number;
+  logLimit: number;
+  warning: string;
+}
+export interface AgentRun {
+  issueIdentifier: string;
+  issueTitle: string;
+  id: string;
+  issueId: string;
+  repositoryId: string;
+  provider: string;
+  worktree: string;
+  branch: string;
+  baseCommit: string;
+  status:
+    'Queued' | 'Running' | 'Completed' | 'Failed' | 'Cancelled' | 'Interrupted';
+  startedAt: string;
+  endedAt: string | null;
+  exitCode: number | null;
+  result: string;
+  log: string;
+  review: 'accepted' | 'rejected' | null;
+  trusted: boolean;
+}
+export interface AgentReview {
+  files: string[];
+  diff: string;
+  additions: number;
+  deletions: number;
+  truncated: boolean;
+}
+
+export interface QueuedTask {
+  id: string;
+  issueId: string;
+  title: string;
+  provider: string;
+  approvedAt: string;
+  expiresAt: string;
+  position: number;
+  status: string;
+  message: string;
+  runId: string | null;
+}
+
+export interface TestCommand {
+  projectId: string;
+  executable: string;
+  trusted: boolean;
+  arguments: string[];
+  maxRuntime: number;
+  logLimit: number;
+}
+export interface TestPreview {
+  token: string;
+  runId: string;
+  command: TestCommand;
+  workingDirectory: string;
+  expiresAt: number;
+}
+export interface IndependentTest {
+  id: string;
+  runId: string;
+  executable: string;
+  arguments: string[];
+  workingDirectory: string;
+  status: string;
+  startedAt: string;
+  endedAt: string | null;
+  durationMs: number | null;
+  exitCode: number | null;
+  result: string;
+  log: string;
+}
+export interface WorktreeInfo {
+  run: AgentRun;
+  repository: string;
+  cleanupState: string;
+  message: string;
+  dirty: boolean | null;
+  diskBytes: number | null;
 }

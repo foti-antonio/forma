@@ -211,6 +211,7 @@ impl Service {
         Ok(())
     }
     pub fn delete_issue(&mut self, project: &str, key: &str) -> Result<()> {
+        self.agent_require_idle()?;
         self.issue(project, key)?;
         let workspace = self.repo.project_workspace(project)?;
         let now = chrono::Utc::now().to_rfc3339();

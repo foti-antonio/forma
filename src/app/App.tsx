@@ -1,3 +1,4 @@
+import { AgentHub } from '../features/agents/Agents';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Archive,
@@ -109,7 +110,7 @@ export default function App() {
           <span className="brand-mark">
             <Layers size={21} />
           </span>
-          forma<span className="version">M03</span>
+          forma<span className="version">M06</span>
         </div>
         <div className="workspace-switcher">
           <label htmlFor="workspace-select" className="eyebrow">
@@ -212,6 +213,7 @@ export default function App() {
               </>
             )}
           </div>
+          <AgentHub />
           <BackupControls
             onRestored={() => {
               setSelectedProjectId(null);
@@ -540,7 +542,7 @@ export default function App() {
       {modal?.kind === 'deleteWorkspace' && (
         <ConfirmDialog
           title={'Delete “' + modal.workspace.name + '”?'}
-          description="This permanently deletes the workspace and all its projects, issues, labels, and activity. This cannot be undone."
+          description="This permanently deletes the workspace and all its projects, issues, labels, activity, and agent run history. Agent worktrees are retained for manual inspection. This cannot be undone."
           action={() => api.deleteWorkspace(modal.workspace.id)}
           onClose={close}
         />
@@ -548,7 +550,7 @@ export default function App() {
       {modal?.kind === 'deleteProject' && (
         <ConfirmDialog
           title={'Delete “' + modal.project.name + '”?'}
-          description="This permanently deletes the project and its issues. This cannot be undone. You can archive the project instead to keep it."
+          description="This permanently deletes the project, its issues, and agent run history. Agent worktrees are retained for manual inspection. This cannot be undone. You can archive the project instead to keep it."
           action={() => api.deleteProject(modal.project.id)}
           onClose={close}
         />

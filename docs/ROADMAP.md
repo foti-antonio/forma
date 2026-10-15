@@ -37,15 +37,37 @@ format 2 preserve prior data; M03 exports upgrade in private staging and restore
 paths require explicit folder selection before access. See [GIT](GIT.md) and
 [M04](../M04.md) for design, actual checks and platform limits.
 
-## M05 — Recommendations
+## M05 — AI agent integration
 
-1. Exercise native Windows and both macOS architectures interactively, including
-   Git folder selection, worktrees, missing paths, installers and signing.
-2. Measure larger real repositories; use evidence to add cancellation, independent
-   Git workers, cursor history and status scan resource limits.
-3. Consider richer issue Git navigation, historical repository management and
-   generated IPC contracts. Any write/network Git requires a separate design.
-4. Evaluate FTS, bulk operations, richer Markdown, backup retention and encryption
-   with a deliberate key-management model.
+Implemented explicitly approved Codex CLI and Claude Code adapters, native
+executable authorization, saved-issue prompt previews, dedicated Git worktrees,
+Rust process supervision, bounded redacted progress/logs, cancellation/timeouts,
+persistent lifecycle/history and human result review. Migration 005 and format-3
+backups preserve validated M03/M04 compatibility and strip imported path access.
+See [AGENTS-INTEGRATION](AGENTS-INTEGRATION.md) and [M05](../M05.md) for execution
+policies, actual verification and platform limitations.
 
-Cloud sync, authentication and AI agents remain outside M04.
+## M06 — Multi-agent execution and reliability
+
+Implemented a default-one, explicitly configurable maximum-two process budget,
+persistent approval queue with explicit dispatch and restart invalidation,
+independent per-run cancellation/logs/review, separately approved project tests
+and confirmed cleanup of known clean reviewed worktrees. Migration 006 and
+format-4 backups preserve earlier data and remove restored path authorizations.
+The four-platform CI matrix now includes native lifecycle tests and packaged
+initialization smoke steps. See [MULTI-AGENT](MULTI-AGENT.md) for scheduler/security
+rules and [M06](../M06.md) for actual checks and platform gaps.
+
+## M07 — Recommended release scope
+
+1. Execute and inspect the hosted Windows and both macOS native matrices, then
+   manually exercise interactive installers and rendering on clean machines.
+2. Developer ID/notarization and Authenticode release signing with protected
+   credentials, plus authenticated real Claude execution on an existing login.
+3. Stronger whole-provider OS containment and hostile descendant containment;
+   brokered tool approvals without provider self-elevation.
+4. Real-provider concurrent CPU/RAM/disk measurements, large-repository stress,
+   configurable backup recovery retention and encryption with defined key handling.
+5. Generated IPC contracts and larger frontend bundle splitting.
+
+Cloud synchronization and Forma authentication remain out of scope.

@@ -1,0 +1,38 @@
+import { api } from '../../lib/ipc';
+// All agent reads and mutations cross the feature-store boundary. Drafts and
+// mounted, bounded history pages stay local to their owning dialog.
+export const agents = {
+  testProject: api.testProject,
+  queueStop: api.agentQueueStop,
+  worktrees: api.agentWorktrees,
+  cleanup: api.agentCleanup,
+  testCommand: api.testCommand,
+  testAuthorize: api.testAuthorize,
+  testSaveCommand: api.testSaveCommand,
+  testPreview: api.testPreview,
+  testStart: api.testStart,
+  testRuns: api.testRuns,
+  testCancel: api.testCancel,
+  concurrency: api.agentConcurrency,
+  setConcurrency: api.agentSetConcurrency,
+  enqueue: api.agentEnqueue,
+  queue: api.agentQueue,
+  queueCancel: api.agentQueueCancel,
+  queueMove: api.agentQueueMove,
+  startQueue: api.agentStartQueue,
+  providers: api.agentProviders,
+  preferred: api.agentPreferred,
+  savePreferred: api.agentSavePreferences,
+  saveSettings: api.agentSaveSettings,
+  authorize: api.agentAuthorize,
+  preview: api.agentPreview,
+  start: api.agentStart,
+  runs: api.agentRuns,
+  recent: api.agentRecent,
+  cancel: api.agentCancel,
+  review: api.agentReview,
+  decide: api.agentMarkReviewed,
+  open: api.agentOpenWorktree,
+};
+export const isActive = (status: string) =>
+  status === 'Running' || status === 'Queued';

@@ -257,7 +257,7 @@ pub struct ActivityPage {
     pub total: i64,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GitRepository {
     pub id: String,

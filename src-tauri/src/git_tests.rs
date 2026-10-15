@@ -370,7 +370,7 @@ fn populated_schema3_upgrade_and_m03_backup_compatibility() {
     let legacy = dir.path().join("m03.forma-backup");
     s.export_backup(&legacy).unwrap();
     let c = rusqlite::Connection::open(&legacy).unwrap();
-    c.execute_batch("DROP TRIGGER git_link_scope; DROP TRIGGER git_link_scope_update; DROP TABLE git_links; DROP TABLE git_repositories; PRAGMA user_version=3; UPDATE backup_metadata SET format_version=1;").unwrap();
+    c.execute_batch("DROP TABLE independent_tests; DROP TABLE project_test_commands; DROP TABLE agent_queue; DROP TABLE agent_runs; DROP TABLE agent_settings; DROP TABLE agent_preferences; DROP TRIGGER git_link_scope; DROP TRIGGER git_link_scope_update; DROP TABLE git_links; DROP TABLE git_repositories; PRAGMA user_version=3; UPDATE backup_metadata SET format_version=1;").unwrap();
     drop(c);
     s.prepare_restore(&legacy).unwrap();
     s.restore_backup(true).unwrap();
@@ -385,7 +385,7 @@ fn populated_schema3_upgrade_and_m03_backup_compatibility() {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
             .unwrap(),
-        4
+        6
     );
 }
 #[test]
@@ -434,7 +434,7 @@ fn failed_004_migration_rolls_back_and_retries_without_data_loss() {
     let legacy = dir.path().join("upgrade-failure.sqlite3");
     s.export_backup(&legacy).unwrap();
     let c = rusqlite::Connection::open(&legacy).unwrap();
-    c.execute_batch("DROP TRIGGER git_link_scope; DROP TRIGGER git_link_scope_update; DROP TABLE git_links; DROP TABLE git_repositories; PRAGMA user_version=3; CREATE TABLE git_links(collision);").unwrap();
+    c.execute_batch("DROP TABLE independent_tests; DROP TABLE project_test_commands; DROP TABLE agent_queue; DROP TABLE agent_runs; DROP TABLE agent_settings; DROP TABLE agent_preferences; DROP TRIGGER git_link_scope; DROP TRIGGER git_link_scope_update; DROP TABLE git_links; DROP TABLE git_repositories; PRAGMA user_version=3; CREATE TABLE git_links(collision);").unwrap();
     drop(c);
     assert!(Service::open(&legacy).is_err());
     let c = rusqlite::Connection::open(&legacy).unwrap();
