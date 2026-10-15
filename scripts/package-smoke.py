@@ -19,9 +19,12 @@ import time
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('bundle', type=Path)
 parser.add_argument('--format', choices=['deb', 'appimage', 'nsis', 'msi', 'dmg'])
+parser.add_argument('--install-deb', action='store_true', help='Install/remove DEB only on a fresh ephemeral GitHub-hosted Linux runner')
 args = parser.parse_args()
 bundle = args.bundle.resolve()
 package_format = args.format or ('nsis' if sys.platform == 'win32' else 'dmg' if sys.platform == 'darwin' else 'deb')
+if args.install_deb and (not sys.platform.startswith('linux') or package_format != 'deb'):
+    parser.error('--install-deb requires Linux and DEB format')
 with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
     root = Path(temporary)
     env = os.environ.copy()
@@ -73,6 +76,15 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
         subprocess.run([str(image), '--appimage-extract'], cwd=root, check=True, stdout=subprocess.DEVNULL, timeout=120)
         executable = root / 'squashfs-root/AppRun'
         method = 'AppImage extraction/runtime execution (FUSE-free; not cross-distro portability)'
+    elif args.install_deb:
+        if package_format != 'deb' or os.environ.get('GITHUB_ACTIONS') != 'true' or os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted':
+            raise RuntimeError('DEB installation requires an ephemeral GitHub-hosted Linux runner')
+        executable = Path('/usr/bin/forma')
+        if executable.exists() or executable.is_symlink():
+            raise RuntimeError('Refusing to replace a pre-existing Forma installation')
+        package = next(bundle.glob('deb/*.deb'))
+        subprocess.run(['sudo', 'apt-get', 'install', '-y', str(package)], check=True, timeout=180)
+        method = 'DEB apt installation and installed process initialization'
     else:
         package = next(bundle.glob("deb/*.deb"))
         install = root / "extracted"
@@ -140,6 +152,10 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
             else:
                 with sqlite3.connect(database) as conn:
                     assert conn.execute('SELECT name FROM workspaces WHERE id=?', (marker,)).fetchone() == ('Package restart fixture',)
+        if args.install_deb:
+            subprocess.run(['sudo', 'apt-get', 'remove', '-y', 'forma'], check=True, timeout=120)
+            assert not executable.exists(), 'DEB uninstall retained executable'
+            assert database.exists(), 'DEB uninstall removed persistent data'
         if sys.platform == 'win32':
             if package_format == 'msi':
                 subprocess.run(['msiexec', '/x', str(installer), '/qn', '/norestart'], check=True, timeout=180)
@@ -152,7 +168,7 @@ with tempfile.TemporaryDirectory(prefix="forma-package-smoke-") as temporary:
             assert not executable.exists(), 'Uninstall retained executable'
             assert database.exists(), 'Uninstall removed persistent data'
         print(f'PASS: {method}; two launches, schema 6/integrity/foreign keys and seeded restart fixture preserved.'
-              ' Windows uninstall/data retention checked when applicable.'
+              ' Installed DEB/Windows uninstall and data retention checked when applicable.'
               ' Interactive UI, native installer dialogs, signing trust and notarization remain unverified.')
     finally:
         if sys.platform == 'win32' and data.exists():

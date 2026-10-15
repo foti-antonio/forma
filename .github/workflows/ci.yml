@@ -149,7 +149,7 @@ jobs:
         run: pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
       - name: Packaged native initialization (Linux)
         if: runner.os == 'Linux'
-        run: dbus-run-session -- xvfb-run -a python3 scripts/package-smoke.py src-tauri/target/${{ matrix.target }}/release/bundle
+        run: dbus-run-session -- xvfb-run -a python3 scripts/package-smoke.py src-tauri/target/${{ matrix.target }}/release/bundle --install-deb
       - name: AppImage FUSE-free initialization and restart
         if: runner.os == 'Linux'
         run: dbus-run-session -- xvfb-run -a python3 scripts/package-smoke.py src-tauri/target/${{ matrix.target }}/release/bundle --format appimage

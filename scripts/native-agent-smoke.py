@@ -187,11 +187,16 @@ def app_nodes():
     return []
 
 
-def control(name, roles=None):
+def control(name, roles=None, partial=False):
     def find():
-        return next((n for n in app_nodes() if n.get_name() == name
-                     and (roles is None or n.get_role_name() in roles)
-                     and n.get_state_set().contains(Atspi.StateType.ENABLED)), None)
+        try:
+            return next((n for n in app_nodes() if (n.get_name() == name or (partial and name in n.get_name()))
+                         and (roles is None or n.get_role_name() in roles)
+                         and n.get_state_set().contains(Atspi.StateType.ENABLED)), None)
+        except GLib.GError:
+            # Modal replacement invalidates old accessibility nodes. The outer
+            # wait still checks the actual app process and has a fixed deadline.
+            return None
     until(lambda: find() is not None, 'accessible control: ' + name)
     return find()
 
@@ -199,8 +204,11 @@ def control(name, roles=None):
 def click(name):
     if not focused():
         raise RuntimeError('App lost focus before accessible action')
-    node = control(name, ('button', 'toggle button', 'unknown'))
-    assert Atspi.Action.do_action(node, 0), 'Accessible action failed: ' + name
+    node = control(name, ('button', 'toggle button', 'unknown'), partial=True)
+    if not Atspi.Action.do_action(node, 0):
+        # WebKit exposes details/summary as an unknown role without an action.
+        assert Atspi.Component.grab_focus(node), 'Cannot focus control: ' + name
+        keys('-k', 'Return')
     time.sleep(.3)
 
 
@@ -208,7 +216,10 @@ def fill(name, value):
     node = control(name, ('entry', 'text'))
     assert Atspi.Component.grab_focus(node), 'Cannot focus ' + name
     keys('-M', 'ctrl', '-k', 'a', '-m', 'ctrl')
-    text(value)
+    if value:
+        text(value)
+    else:
+        keys('-k', 'BackSpace')
 
 
 def choose_executable(name, title, path):
@@ -229,6 +240,7 @@ def beta_qa():
     fill('Title', 'Beta queued task')
     save()
     until(lambda: rows("SELECT count(*) FROM issues WHERE title='Beta queued task'") == [(1,)], 'saved queue issue')
+    click('Clear all filters')
     click('Beta queued task')
     click('AI Agent')
     click('Preview agent task')
@@ -249,8 +261,12 @@ def beta_qa():
     click('AI Agent')
     click('Inspect result')
     choose_executable('Choose & authorize test executable…', 'Authorize independent test runner executable', fixture)
+    until(lambda: rows('SELECT trusted FROM project_test_commands') == [(1,)], 'authorized independent runner')
+    time.sleep(1)
     fill('Arguments (JSON array, no shell expansion)', '["--forma-test"]')
+    screenshot('beta-test-command-filled')
     click('Save & preview independent tests')
+    screenshot('beta-test-preview')
     assert rows('SELECT count(*) FROM independent_tests') == [(0,)]
     click('Approve & run independent tests')
     until(lambda: rows("SELECT count(*) FROM independent_tests WHERE status='Completed'") == [(1,)], 'approved independent test')
