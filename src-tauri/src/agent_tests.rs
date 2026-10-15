@@ -509,13 +509,14 @@ fn executable_filename_is_not_shell_code_and_ipc_cannot_authorize_paths() {
 #[test]
 fn privileged_and_writable_executables_cannot_be_authorized() {
     use std::os::unix::fs::PermissionsExt;
-    let (dir, mut s, _, _) = setup("Executable privilege boundary");
+    let (dir, mut s, project, _) = setup("Executable privilege boundary");
     let exe = dir.path().join("privileged-provider");
     std::fs::copy(fixture_executable(), &exe).unwrap();
     for mode in [0o4755, 0o2755, 0o6755, 0o775, 0o757] {
         std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(mode)).unwrap();
         assert!(engine::executable(&exe).is_err(), "mode {mode:o}");
         assert!(s.agent_authorize("codex", &exe).is_err());
+        assert!(s.test_authorize(&project, &exe).is_err());
     }
     std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
     s.agent_authorize("codex", &exe).unwrap();

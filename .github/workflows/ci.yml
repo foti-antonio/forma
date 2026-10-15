@@ -92,6 +92,9 @@ jobs:
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - run: cargo test --locked --manifest-path src-tauri/Cargo.toml --features ipc-tests
       - run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-features --all-targets -- -D warnings
+      - name: Record installed Linux native library versions
+        if: runner.os == 'Linux'
+        run: pkg-config --modversion gtk+-3.0 webkit2gtk-4.1
       - name: Build unsigned review candidate
         if: ${{ !inputs.trusted-signing }}
         run: pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}

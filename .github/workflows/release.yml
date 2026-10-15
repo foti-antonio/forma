@@ -4,6 +4,7 @@ on:
     tags: ['v[0-9]*']
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
