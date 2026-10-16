@@ -4,6 +4,12 @@ on:
     branches: [main, 'milestone/**']
   pull_request:
   workflow_dispatch:
+    inputs:
+      onboarding_run_id:
+        description: 'Diagnostic Windows smoke only: reuse a checksummed build from this branch; product source must be unchanged'
+        type: string
+        default: ''
+        required: false
   workflow_call:
     inputs:
       trusted-signing:
@@ -14,6 +20,7 @@ permissions:
   actions: read
 jobs:
   frontend:
+    if: github.event_name != 'workflow_dispatch' || inputs.onboarding_run_id == ''
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +39,7 @@ jobs:
       - run: python3 -m unittest discover -s scripts -p 'test_release*.py'
       - run: python3 -m unittest discover -s scripts -p 'test_onboarding*.py'
   rust:
+    if: github.event_name != 'workflow_dispatch' || inputs.onboarding_run_id == ''
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -168,6 +176,20 @@ jobs:
       - name: Build Linux release installers
         if: inputs.trusted-signing && runner.os == 'Linux'
         run: pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+      - name: Preserve Windows executable for native smoke diagnostics
+        if: runner.os == 'Windows' && !inputs.trusted-signing
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force onboarding-build | Out-Null
+          Copy-Item 'src-tauri/target/${{ matrix.target }}/release/forma.exe' onboarding-build/forma.exe
+          @{ source = $env:GITHUB_SHA; sha256 = (Get-FileHash onboarding-build/forma.exe -Algorithm SHA256).Hash.ToLowerInvariant() } | ConvertTo-Json | Set-Content onboarding-build/manifest.json -Encoding utf8
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows' && !inputs.trusted-signing
+        with:
+          name: onboarding-windows-build
+          path: onboarding-build/
+          retention-days: 7
+          if-no-files-found: error
       - name: Native first-task onboarding (Windows)
         if: runner.os == 'Windows'
         run: python3 scripts/native-onboarding-platform.py src-tauri/target/${{ matrix.target }}/release/forma.exe
@@ -265,3 +287,45 @@ jobs:
           path: candidate/
           if-no-files-found: error
           retention-days: 30
+
+  onboarding-debug:
+    name: Windows onboarding diagnostic (verified product reuse)
+    if: github.event_name == 'workflow_dispatch' && inputs.onboarding_run_id != ''
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: onboarding-windows-build
+          path: onboarding-build
+          run-id: ${{ inputs.onboarding_run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify provenance, checksum and unchanged product source
+        shell: pwsh
+        env:
+          BUILD_RUN_ID: ${{ inputs.onboarding_run_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ($env:BUILD_RUN_ID -notmatch '^[0-9]+$') { throw 'Expected a numeric build run ID' }
+          $manifest = Get-Content onboarding-build/manifest.json -Raw | ConvertFrom-Json
+          if ($manifest.source -notmatch '^[0-9a-f]{40}$' -or $manifest.sha256 -notmatch '^[0-9a-f]{64}$') { throw 'Invalid build manifest' }
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' }
+          $build = Invoke-RestMethod -Headers $headers -Uri "$env:GITHUB_API_URL/repos/$env:GITHUB_REPOSITORY/actions/runs/$env:BUILD_RUN_ID"
+          if ($build.head_repository.full_name -ne $env:GITHUB_REPOSITORY -or $build.head_branch -ne $env:GITHUB_REF_NAME -or $build.head_sha -ne $manifest.source) { throw 'Build is not from the current repository and milestone branch' }
+          $digest = (Get-FileHash onboarding-build/forma.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($digest -ne $manifest.sha256) { throw 'Executable checksum mismatch' }
+          git diff --exit-code $manifest.source HEAD -- src src-tauri public package.json pnpm-lock.yaml vite.config.ts index.html tsconfig.json tsconfig.app.json tsconfig.node.json
+          if ($LASTEXITCODE -ne 0) { throw 'Product source changed; create a fresh full CI build' }
+          Write-Output 'Diagnostic smoke only. The separate full matrix and candidate gates remain required.'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Native first-task onboarding from identical product source
+        run: python3 scripts/native-onboarding-platform.py onboarding-build/forma.exe
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: onboarding-debug-evidence
+          path: package-evidence/
+          retention-days: 7
+          if-no-files-found: warn

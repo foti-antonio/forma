@@ -23,10 +23,20 @@ public class OnboardingWindow {
 $A = [System.Windows.Automation.AutomationElement]
 $scope = [System.Windows.Automation.TreeScope]::Descendants
 $pidCondition = [System.Windows.Automation.PropertyCondition]::new($A::ProcessIdProperty, $AppPid)
+function Owned-Windows {
+  $roots = [System.Collections.Generic.List[System.Windows.Automation.AutomationElement]]::new()
+  $foreground = [OnboardingWindow]::GetForegroundWindow()
+  [uint32]$owner = 0
+  $null = [OnboardingWindow]::GetWindowThreadProcessId($foreground, [ref]$owner)
+  if ($owner -eq $AppPid) { $roots.Add($A::FromHandle($foreground)) }
+  $windows = $A::RootElement.FindAll([System.Windows.Automation.TreeScope]::Children, $pidCondition)
+  for ($i = 0; $i -lt $windows.Count; $i++) { $roots.Add($windows[$i]) }
+  return ,$roots
+}
 function Find-Named([string]$Name, [bool]$Edit = $false, [bool]$Pressable = $false) {
   # Owned native dialogs may be separate UIA root windows. Search every
   # top-level window belonging to this process, never another application.
-  $windows = $A::RootElement.FindAll([System.Windows.Automation.TreeScope]::Children, $pidCondition)
+  $windows = Owned-Windows
   $condition = [System.Windows.Automation.PropertyCondition]::new($A::NameProperty, $Name, [System.Windows.Automation.PropertyConditionFlags]::IgnoreCase)
   if ($Edit) {
     $condition = [System.Windows.Automation.AndCondition]::new($condition,
@@ -56,11 +66,11 @@ function Wait-Node([string]$Name, [bool]$Edit = $false, [bool]$Pressable = $fals
   } while ((Get-Date) -lt $end)
   # Sample-only runner data. Capture names/roles (never Value/Text content) to
   # diagnose a missing native control without silently skipping the test.
-  $windows = $A::RootElement.FindAll([System.Windows.Automation.TreeScope]::Children, $pidCondition)
+  $windows = Owned-Windows
   for ($w = 0; $w -lt $windows.Count; $w++) {
     $rootWindow = $windows[$w]
     $controls = $rootWindow.FindAll($scope, [System.Windows.Automation.Condition]::TrueCondition)
-    Write-Output ('UIA window: ' + $rootWindow.Current.Name + ' / descendants: ' + $controls.Count)
+    [Console]::Error.WriteLine('UIA window: ' + $rootWindow.Current.Name + ' / descendants: ' + $controls.Count)
     $shown = 0
     for ($i = 0; $i -lt $controls.Count -and $shown -lt 80; $i++) {
       try {
@@ -68,7 +78,7 @@ function Wait-Node([string]$Name, [bool]$Edit = $false, [bool]$Pressable = $fals
         $label = [string]$info.Name
         if (!$info.IsOffscreen -or $label -match 'Select|Folder|Address|Connect Git') {
           if ($label.Length -gt 120) { $label = $label.Substring(0, 120) }
-          Write-Output ('UIA diagnostic: ' + $info.ControlType.ProgrammaticName + ' / ' + $info.AutomationId + ' / offscreen=' + $info.IsOffscreen + ' / ' + $label)
+          [Console]::Error.WriteLine('UIA diagnostic: ' + $info.ControlType.ProgrammaticName + ' / ' + $info.AutomationId + ' / offscreen=' + $info.IsOffscreen + ' / ' + $label)
           $shown++
         }
       } catch [System.Windows.Automation.ElementNotAvailableException] { }
