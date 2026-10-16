@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "evidence": "simulated",
+  "result": "passed",
+  "actions": 28,
+  "errors": 0,
+  "recoveries": 2,
+  "elapsed_seconds": 112.252,
+  "stages": {
+    "setup": {
+      "elapsed_seconds": 3.077,
+      "actions": 3
+    },
+    "authorized": {
+      "elapsed_seconds": 13.996,
+      "actions": 5
+    },
+    "signed_in": {
+      "elapsed_seconds": 37.949,
+      "actions": 10
+    },
+    "repository": {
+      "elapsed_seconds": 82.65,
+      "actions": 23
+    },
+    "preview": {
+      "elapsed_seconds": 107.169,
+      "actions": 25
+    },
+    "completed": {
+      "elapsed_seconds": 109.493,
+      "actions": 26
+    },
+    "reviewed": {
+      "elapsed_seconds": 112.252,
+      "actions": 28
+    }
+  }
+}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Opt-in Linux/Hyprland M08 UI smoke. Uses isolated data and a compiled fake CLI.
+"""Opt-in Linux/Hyprland M09 UI smoke. Uses isolated data and a compiled fake CLI.
 
 Add --real-codex --approve-real-provider only after explicit approval; this uses
 one installed authenticated Codex task in a disposable repository.
@@ -59,7 +59,9 @@ portal = False
 metrics = OnboardingMetrics('authenticated-codex' if args.real_codex else 'simulated')
 
 
-def until(action, label, timeout=35):
+def until(action, label, timeout=None):
+    if timeout is None:
+        timeout = 120 if args.real_codex else 35
     end = time.monotonic() + timeout
     while time.monotonic() < end:
         assert process.poll() is None, f'App exited: {process.returncode}; {root}'
@@ -196,7 +198,9 @@ try:
     if args.real_codex:
         assert rows('SELECT count(*) FROM agent_runs') == [(0,)]
         click('Authorize this installation: ' + str(fixture.resolve()))
+        until(lambda: rows("SELECT trusted FROM agent_settings WHERE provider='codex'") == [(1,)], 'authorized installed Codex')
         metrics.mark('authorized')
+        control('Select Git folder…', ('button', 'push button'))
         metrics.mark('signed_in')
     portal = True
     # Focus the real native picker action before sending Return.
@@ -249,6 +253,11 @@ try:
     print('PASS: native discovered authorization without path entry, explicit login/cancel, permissions, native repository connection, exact prompt, final approval, coordinator execution and review.', flush=True)
 except Exception:
     metrics.errors += 1
+    if process.poll() is None and focused():
+        try:
+            screenshot('failure')
+        except Exception:
+            pass
     raise
 finally:
     metrics.write(root / 'metrics.json')

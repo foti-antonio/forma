@@ -1,4 +1,4 @@
-# AI agent integration (M05–M08)
+# AI agent integration (M05–M09)
 
 Forma launches locally installed Codex CLI or Claude Code after a user previews
 and explicitly approves a saved issue. Provider inference may require network
@@ -201,3 +201,16 @@ isolation requirement. It never grants per-task approval or Claude risk consent.
 First-task setup opens the same existing exact-prompt preview and coordinator;
 worktrees are created only after execution approval. Existing queue, progress,
 cancellation, results and review remain the only task execution lifecycle.
+
+## M09 first-run shortcuts
+
+Start from **Run with AI** in the saved issue. Setup skips already satisfied
+installation/sign-in requirements and advances after native repository selection.
+The installed/signed-in/repository/ready summary remains visible during setup.
+Permission review opens the same exact task preview directly; the generic setup
+acknowledgement and separate readiness page are removed. Executable authorization,
+Claude's separate per-run host-risk consent and final single-use task approval
+remain required. Successful explicitly opened browser login triggers an automatic
+authentication recheck. Known native locations remain discoverable with long or
+duplicate PATHs; rescan still never executes unauthorized candidates. See
+[M09](../M09.md) for measured local and hosted evidence and its limitations.

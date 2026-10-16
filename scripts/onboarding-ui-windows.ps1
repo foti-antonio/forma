@@ -9,14 +9,20 @@ $A = [System.Windows.Automation.AutomationElement]
 $scope = [System.Windows.Automation.TreeScope]::Descendants
 $pidCondition = [System.Windows.Automation.PropertyCondition]::new($A::ProcessIdProperty, $AppPid)
 function Find-Named([string]$Name, [bool]$Edit = $false) {
-  $window = $A::RootElement.FindFirst([System.Windows.Automation.TreeScope]::Children, $pidCondition)
-  if (!$window) { return $null }
+  # Owned native dialogs may be separate UIA root windows. Search every
+  # top-level window belonging to this process, never another application.
+  $windows = $A::RootElement.FindAll([System.Windows.Automation.TreeScope]::Children, $pidCondition)
   $condition = [System.Windows.Automation.PropertyCondition]::new($A::NameProperty, $Name)
   if ($Edit) {
     $condition = [System.Windows.Automation.AndCondition]::new($condition,
       [System.Windows.Automation.PropertyCondition]::new($A::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit))
   }
-  return $window.FindFirst($scope, $condition)
+  foreach ($window in $windows) {
+    if (!$Edit -and $window.Current.Name -eq $Name) { return $window }
+    $node = $window.FindFirst($scope, $condition)
+    if ($node) { return $node }
+  }
+  return $null
 }
 function Wait-Node([string]$Name, [bool]$Edit = $false) {
   $end = (Get-Date).AddSeconds(40)
@@ -29,6 +35,7 @@ function Wait-Node([string]$Name, [bool]$Edit = $false) {
 }
 
 function Click([string]$Name) {
+  Write-Output ('UI action: ' + $Name)
   $node = Wait-Node $Name
   $script:actions++
   $pattern = $null
@@ -37,12 +44,14 @@ function Click([string]$Name) {
   else { throw "Control has no supported action: $Name" }
 }
 function Fill([string]$Name, [string]$Value) {
+  Write-Output ('UI fill: ' + $Name)
   $script:actions++
   $node = Wait-Node $Name $true
   $node.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Value)
 }
 function Mark([string]$Stage) {
   $stages[$Stage] = @{ elapsed_seconds = ((Get-Date) - $started).TotalSeconds; actions = $script:actions }
+  @{ schema = 1; evidence = 'simulated'; result = 'incomplete'; actions = $script:actions; errors = 0; recoveries = 0; elapsed_seconds = ((Get-Date) - $started).TotalSeconds; stages = $stages } | ConvertTo-Json -Depth 5 | Set-Content $Evidence
 }
 Click 'Create workspace'
 Fill 'Workspace name' 'Onboarding smoke'
@@ -81,6 +90,8 @@ if ($foregroundPid -ne $AppPid) { throw 'Refusing keyboard input outside Forma' 
 Start-Sleep -Milliseconds 300
 $address = $A::FocusedElement
 $address.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Repository)
+$null = [OnboardingWindow]::GetWindowThreadProcessId([OnboardingWindow]::GetForegroundWindow(), [ref]$foregroundPid)
+if ($foregroundPid -ne $AppPid) { throw 'Refusing keyboard input outside Forma' }
 [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
 Click 'Select Folder'
 Mark 'repository'

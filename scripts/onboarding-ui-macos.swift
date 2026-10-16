@@ -8,6 +8,11 @@ let evidence = CommandLine.arguments[4]
 let started = Date()
 var actions = 0
 var stages: [String: Any] = [:]
+func writeMetrics(_ result: String) {
+    let metrics: [String: Any] = ["schema": 1, "evidence": "simulated", "result": result, "actions": actions, "errors": 0, "recoveries": 0, "elapsed_seconds": Date().timeIntervalSince(started), "stages": stages]
+    do { try JSONSerialization.data(withJSONObject: metrics, options: [.prettyPrinted, .sortedKeys]).write(to: URL(fileURLWithPath: evidence)) }
+    catch { fputs("Cannot write local numeric evidence\n", stderr); exit(1) }
+}
 if !AXIsProcessTrusted() {
     print("UNVERIFIED: macOS AX access is not authorized for this runner; no TCC bypass attempted")
     exit(77)
@@ -51,21 +56,30 @@ func press(_ element: AXUIElement) {
 }
 
 func click(_ name: String) {
+    print("UI action: \(name)")
     press(wait(name) {
         guard let element = find(name), attribute(element, kAXEnabledAttribute) as? Bool == true else { return nil }
         return element
     })
 }
 func fill(_ name: String, _ value: String) {
+    print("UI fill: \(name)")
     let entry = wait(name) { find(name, kAXTextFieldRole) }
     actions += 1
-    guard AXUIElementSetAttributeValue(entry, kAXValueAttribute as CFString, value as CFString) == .success else { exit(1) }
+    let result = AXUIElementSetAttributeValue(entry, kAXValueAttribute as CFString, value as CFString)
+    guard result == .success else { fputs("AX fill failed: \(name), \(result.rawValue)\n", stderr); exit(1) }
 }
 func mark(_ stage: String) {
     stages[stage] = ["elapsed_seconds": Date().timeIntervalSince(started), "actions": actions]
+    writeMetrics("incomplete")
 }
 func key(_ code: CGKeyCode, _ flags: CGEventFlags = []) {
-    guard NSWorkspace.shared.frontmostApplication?.processIdentifier == pid else { exit(1) }
+    NSRunningApplication(processIdentifier: pid)?.activate(options: [.activateIgnoringOtherApps])
+    for _ in 0..<40 {
+        if NSWorkspace.shared.frontmostApplication?.processIdentifier == pid { break }
+        Thread.sleep(forTimeInterval: 0.1)
+    }
+    guard NSWorkspace.shared.frontmostApplication?.processIdentifier == pid else { fputs("Refusing keys outside Forma\n", stderr); exit(1) }
     for down in [true, false] {
         let event = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: down)!
         event.flags = flags
@@ -95,21 +109,20 @@ click("Select Git folder…")
 _ = wait("native chooser") { find("Connect Git repository") }
 key(5, [.maskCommand, .maskShift]) // Cmd Shift G: native Go to Folder
 let location = wait("Go to Folder input") {
-    walk(app).first { attribute($0, kAXRoleAttribute) as? String == kAXComboBoxRole || attribute($0, kAXRoleAttribute) as? String == kAXTextFieldRole && attribute($0, kAXFocusedAttribute) as? Bool == true }
+    walk(app).first { attribute($0, kAXRoleAttribute) as? String == kAXTextFieldRole && attribute($0, kAXFocusedAttribute) as? Bool == true }
 }
-guard AXUIElementSetAttributeValue(location, kAXValueAttribute as CFString, repository as CFString) == .success else { exit(1) }
+guard AXUIElementSetAttributeValue(location, kAXValueAttribute as CFString, repository as CFString) == .success else { fputs("AX native folder input failed\n", stderr); exit(1) }
 key(36)
 click("Open")
 mark("repository")
 click("Preview first task")
-let prompt = wait("exact prompt") { find("Task prompt (saved issue)") }
-guard let value = attribute(prompt, kAXValueAttribute) as? String, value.contains("First approved task"), value.contains("UNTRUSTED TASK DATA") else { exit(1) }
+let prompt = wait("exact prompt") { find("Task prompt (saved issue)", kAXTextAreaRole) }
+guard let value = attribute(prompt, kAXValueAttribute) as? String, value.contains("First approved task"), value.contains("UNTRUSTED TASK DATA") else { fputs("Exact prompt text unavailable in AX text area\n", stderr); exit(1) }
 mark("preview")
 click("Approve & run once")
 click("Inspect result")
 mark("completed")
 click("Accept for manual integration")
 mark("reviewed")
-let metrics: [String: Any] = ["schema": 1, "evidence": "simulated", "result": "passed", "actions": actions, "errors": 0, "recoveries": 0, "elapsed_seconds": Date().timeIntervalSince(started), "stages": stages]
-try JSONSerialization.data(withJSONObject: metrics, options: [.prettyPrinted, .sortedKeys]).write(to: URL(fileURLWithPath: evidence))
+writeMetrics("passed")
 print("PASS: native macOS onboarding and approved simulated task")
