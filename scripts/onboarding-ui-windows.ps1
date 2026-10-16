@@ -7,10 +7,23 @@ $folderControl = 'Select Git folder' + [char]0x2026
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+[StructLayout(LayoutKind.Sequential)] public struct PickerPoint { public int X; public int Y; public PickerPoint(int x, int y) { X=x; Y=y; } }
+public class OnboardingWindow {
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint p);
+  [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(PickerPoint p);
+  [DllImport("user32.dll", SetLastError=true)] public static extern bool SetCursorPos(int x, int y);
+  [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra);
+}
+'@
 $A = [System.Windows.Automation.AutomationElement]
 $scope = [System.Windows.Automation.TreeScope]::Descendants
 $pidCondition = [System.Windows.Automation.PropertyCondition]::new($A::ProcessIdProperty, $AppPid)
-function Find-Named([string]$Name, [bool]$Edit = $false) {
+function Find-Named([string]$Name, [bool]$Edit = $false, [bool]$Pressable = $false) {
   # Owned native dialogs may be separate UIA root windows. Search every
   # top-level window belonging to this process, never another application.
   $windows = $A::RootElement.FindAll([System.Windows.Automation.TreeScope]::Children, $pidCondition)
@@ -19,31 +32,70 @@ function Find-Named([string]$Name, [bool]$Edit = $false) {
     $condition = [System.Windows.Automation.AndCondition]::new($condition,
       [System.Windows.Automation.PropertyCondition]::new($A::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit))
   }
+  if ($Pressable) {
+    $button = [System.Windows.Automation.PropertyCondition]::new($A::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
+    $split = [System.Windows.Automation.PropertyCondition]::new($A::ControlTypeProperty, [System.Windows.Automation.ControlType]::SplitButton)
+    $check = [System.Windows.Automation.PropertyCondition]::new($A::ControlTypeProperty, [System.Windows.Automation.ControlType]::CheckBox)
+    $roles = [System.Windows.Automation.OrCondition]::new([System.Windows.Automation.OrCondition]::new($button, $split), $check)
+    $condition = [System.Windows.Automation.AndCondition]::new($condition, $roles)
+  }
   for ($j = 0; $j -lt $windows.Count; $j++) {
     $window = $windows[$j]
-    if (!$Edit -and $window.Current.Name -eq $Name) { return $window }
+    if (!$Edit -and !$Pressable -and $window.Current.Name -eq $Name) { return $window }
     $node = $window.FindFirst($scope, $condition)
     if ($node) { return $node }
   }
   return $null
 }
-function Wait-Node([string]$Name, [bool]$Edit = $false) {
+function Wait-Node([string]$Name, [bool]$Edit = $false, [bool]$Pressable = $false) {
   $end = (Get-Date).AddSeconds(40)
   do {
-    $node = Find-Named $Name $Edit
+    $node = Find-Named $Name $Edit $Pressable
     if ($node -and $node.Current.IsEnabled) { return $node }
     Start-Sleep -Milliseconds 250
   } while ((Get-Date) -lt $end)
+  # Sample-only runner data. Capture names/roles (never Value/Text content) to
+  # diagnose a missing native control without silently skipping the test.
+  $windows = $A::RootElement.FindAll([System.Windows.Automation.TreeScope]::Children, $pidCondition)
+  for ($w = 0; $w -lt $windows.Count; $w++) {
+    $controls = $windows[$w].FindAll($scope, [System.Windows.Automation.Condition]::TrueCondition)
+    for ($i = 0; $i -lt [Math]::Min(60, $controls.Count); $i++) {
+      try {
+        $info = $controls[$i].Current
+        if (!$info.IsOffscreen) {
+          $label = [string]$info.Name
+          if ($label.Length -gt 120) { $label = $label.Substring(0, 120) }
+          Write-Output ('UIA diagnostic: ' + $info.ControlType.ProgrammaticName + ' / ' + $info.AutomationId + ' / ' + $label)
+        }
+      } catch [System.Windows.Automation.ElementNotAvailableException] { }
+    }
+  }
   throw "UI Automation timeout: $Name"
 }
 
 function Click([string]$Name) {
   Write-Output ('UI action: ' + $Name)
-  $node = Wait-Node $Name
+  $node = Wait-Node $Name $false $true
   $script:actions++
   $pattern = $null
   if ($node.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) { $pattern.Invoke() }
   elseif ($node.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$pattern)) { $pattern.Toggle() }
+  elseif ($Name -eq 'Select Folder') {
+    $foreground = [OnboardingWindow]::GetForegroundWindow()
+    [uint32]$owner = 0
+    $null = [OnboardingWindow]::GetWindowThreadProcessId($foreground, [ref]$owner)
+    if ($owner -ne $AppPid -or $A::FromHandle($foreground).Current.Name -ne 'Connect Git repository') { throw 'Refusing mouse input outside the native Forma folder picker' }
+    $bounds = $node.Current.BoundingRectangle
+    if ($node.Current.IsOffscreen -or $bounds.Width -le 0 -or $bounds.Height -le 0) { throw 'Native Select Folder button is not visible' }
+    $point = [PickerPoint]::new([int]($bounds.X + $bounds.Width / 2), [int]($bounds.Y + $bounds.Height / 2))
+    [uint32]$pointOwner = 0
+    $null = [OnboardingWindow]::GetWindowThreadProcessId([OnboardingWindow]::WindowFromPoint($point), [ref]$pointOwner)
+    if ($pointOwner -ne $AppPid) { throw 'Refusing mouse input over another process' }
+    if (![OnboardingWindow]::SetCursorPos($point.X, $point.Y)) { throw 'Native picker cursor placement failed' }
+    Write-Output 'Native folder selection: scoped button mouse click'
+    [OnboardingWindow]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+    [OnboardingWindow]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+  }
   else { throw "Control has no supported action: $Name" }
 }
 function Fill([string]$Name, [string]$Value) {
@@ -93,6 +145,7 @@ Click $folderControl
 # Standard Windows folder chooser: prefer its labelled Folder field. This
 # avoids depending on whichever element Windows reports as keyboard-focused.
 $picker = Wait-Node 'Connect Git repository'
+$null = Wait-Node 'Select Folder' $false $true
 $folder = Find-Named 'Folder:' $true
 if (!$folder) { $folder = Find-Named 'File name:' $true }
 $folderPattern = $null
@@ -102,8 +155,6 @@ if ($folder -and $folder.TryGetCurrentPattern([System.Windows.Automation.ValuePa
 } else {
   # Some Windows builds expose no writable UIA pattern in this dialog.
   # Use normal address-bar keys, scoped to the exact native picker window.
-  Add-Type -AssemblyName System.Windows.Forms
-  Add-Type 'using System; using System.Runtime.InteropServices; public class OnboardingWindow { [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint p); }'
   function Picker-Keys([string]$Keys) {
     [uint32]$foregroundPid = 0
     $foreground = [OnboardingWindow]::GetForegroundWindow()
