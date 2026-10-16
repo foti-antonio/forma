@@ -1,0 +1,39 @@
+{
+  "actions": 20,
+  "elapsed_seconds": 16.603899002075195,
+  "errors": 0,
+  "evidence": "simulated",
+  "recoveries": 0,
+  "result": "passed",
+  "schema": 1,
+  "stages": {
+    "authorized": {
+      "actions": 14,
+      "elapsed_seconds": 3.164337992668152
+    },
+    "completed": {
+      "actions": 19,
+      "elapsed_seconds": 16.390272974967957
+    },
+    "preview": {
+      "actions": 17,
+      "elapsed_seconds": 14.871815919876099
+    },
+    "repository": {
+      "actions": 16,
+      "elapsed_seconds": 14.022826910018921
+    },
+    "reviewed": {
+      "actions": 20,
+      "elapsed_seconds": 16.596651911735535
+    },
+    "setup": {
+      "actions": 12,
+      "elapsed_seconds": 2.6171820163726807
+    },
+    "signed_in": {
+      "actions": 14,
+      "elapsed_seconds": 3.1649129390716553
+    }
+  }
+}

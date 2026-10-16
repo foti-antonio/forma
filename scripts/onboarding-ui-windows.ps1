@@ -18,7 +18,7 @@ function Find-Named([string]$Name, [bool]$Edit = $false) {
       [System.Windows.Automation.PropertyCondition]::new($A::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit))
   }
   for ($j = 0; $j -lt $windows.Count; $j++) {
-    $window = $windows.Item($j)
+    $window = $windows[$j]
     if (!$Edit -and $window.Current.Name -eq $Name) { return $window }
     $node = $window.FindFirst($scope, $condition)
     if ($node) { return $node }
@@ -71,7 +71,7 @@ do {
   if ($window) {
     $buttons = $window.FindAll($scope, [System.Windows.Automation.PropertyCondition]::new($A::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button))
     for ($j = 0; $j -lt $buttons.Count; $j++) {
-      $button = $buttons.Item($j)
+      $button = $buttons[$j]
       if ($button.Current.Name -like '*First approved task*') { $node = $button; break }
     }
   }
@@ -84,6 +84,7 @@ Click 'Run with AI'
 Mark 'setup'
 Click 'Find installation'
 Click ('Authorize this installation: ' + $Fixture)
+$null = Wait-Node 'Select Git folder…'
 Mark 'authorized'
 Mark 'signed_in'
 Click 'Select Git folder…'
@@ -102,6 +103,7 @@ $null = [OnboardingWindow]::GetWindowThreadProcessId([OnboardingWindow]::GetFore
 if ($foregroundPid -ne $AppPid) { throw 'Refusing keyboard input outside Forma' }
 [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
 Click 'Select Folder'
+$null = Wait-Node 'Preview first task'
 Mark 'repository'
 Click 'Preview first task'
 $prompt = Wait-Node 'Task prompt (saved issue)' $true

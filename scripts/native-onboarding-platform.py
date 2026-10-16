@@ -32,6 +32,8 @@ def run(binary):
             raise RuntimeError('Requires a disposable GitHub-hosted Windows profile')
         roaming = subprocess.check_output(['powershell', '-NoProfile', '-Command',
             "[Environment]::GetFolderPath('ApplicationData')"], text=True).strip()
+        if not roaming or not Path(roaming).is_absolute():
+            raise RuntimeError('Cannot resolve Windows roaming app-data known folder')
         data = Path(roaming) / 'dev.forma.desktop'
     else:
         env['HOME'] = str(home)

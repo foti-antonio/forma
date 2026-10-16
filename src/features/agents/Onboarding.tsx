@@ -494,8 +494,9 @@ export function Onboarding({
           </Button>
           {status?.diagnostics && <AgentError details={status.diagnostics} />}
           <p>
-            Review the exact task next. Only your final approval starts
-            execution.
+            {projectId
+              ? 'Review the exact task next. Only your final approval starts execution.'
+              : 'Finish setup, then open a saved issue and choose Run with AI to connect its folder and review the exact task. Only your final approval starts execution.'}
           </p>
           <Button
             disabled={busy}

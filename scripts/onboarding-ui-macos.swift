@@ -103,6 +103,7 @@ click("Run with AI")
 mark("setup")
 click("Find installation")
 click("Authorize this installation: " + fixture)
+_ = wait("confirmed sign-in and repository step") { find("Select Git folder…", kAXButtonRole) }
 mark("authorized")
 mark("signed_in")
 click("Select Git folder…")
@@ -114,6 +115,7 @@ let location = wait("Go to Folder input") {
 guard AXUIElementSetAttributeValue(location, kAXValueAttribute as CFString, repository as CFString) == .success else { fputs("AX native folder input failed\n", stderr); exit(1) }
 key(36)
 click("Open")
+_ = wait("repository authorized") { find("Preview first task", kAXButtonRole) }
 mark("repository")
 click("Preview first task")
 let prompt = wait("exact prompt") { find("Task prompt (saved issue)", kAXTextAreaRole) }
