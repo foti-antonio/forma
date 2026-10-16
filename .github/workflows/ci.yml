@@ -30,6 +30,7 @@ jobs:
       - run: pnpm build
       - run: node scripts/release-version.mjs
       - run: python3 -m unittest discover -s scripts -p 'test_release*.py'
+      - run: python3 -m unittest discover -s scripts -p 'test_onboarding*.py'
   rust:
     runs-on: ubuntu-24.04
     steps:
@@ -166,6 +167,20 @@ jobs:
       - name: Build Linux release installers
         if: inputs.trusted-signing && runner.os == 'Linux'
         run: pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+      - name: Native first-task onboarding (Windows)
+        if: runner.os == 'Windows'
+        run: python3 scripts/native-onboarding-platform.py src-tauri/target/${{ matrix.target }}/release/forma.exe
+      - name: Native first-task onboarding (Intel and Apple Silicon macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          status=0
+          python3 scripts/native-onboarding-platform.py src-tauri/target/${{ matrix.target }}/release/forma || status=$?
+          if [ "$status" = 77 ]; then
+            echo '::warning::Native onboarding unverified: runner Accessibility permission unavailable; no TCC bypass attempted'
+          elif [ "$status" != 0 ]; then
+            exit "$status"
+          fi
       - name: Packaged native initialization (Linux)
         if: runner.os == 'Linux'
         run: dbus-run-session -- xvfb-run -a python3 scripts/package-smoke.py src-tauri/target/${{ matrix.target }}/release/bundle --install-deb --ui

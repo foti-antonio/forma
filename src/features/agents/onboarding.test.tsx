@@ -103,8 +103,9 @@ it('discovery never authorizes or logs in until the user acts, and rescan expose
     }),
   );
   expect(agents.authorizeDiscovered).toHaveBeenCalledWith('candidate-id');
-  await user.click(screen.getByRole('button', { name: 'Continue to sign-in' }));
-  expect(screen.getByText('Authentication: authenticated')).toBeTruthy();
+  expect(
+    screen.getByRole('heading', { name: 'Conservative permissions' }),
+  ).toBeTruthy();
   expect(agents.start).not.toHaveBeenCalled();
   await user.click(screen.getByRole('button', { name: 'Close setup' }));
   expect(close).toHaveBeenCalledOnce();
@@ -146,7 +147,6 @@ it('unauthenticated and unknown sessions block readiness; login and cancellation
   const user = userEvent.setup();
   render(<Onboarding onClose={vi.fn()} />);
   await user.click(screen.getByRole('button', { name: 'Find installation' }));
-  await user.click(screen.getByRole('button', { name: 'Continue to sign-in' }));
   expect(
     (
       screen.getByRole('button', {
@@ -168,7 +168,6 @@ it('guides the first task into the existing exact prompt and explicit execution 
     path: '/repo',
     name: 'repo',
     trusted: true,
-    createdAt: '',
     connected: true,
   };
   vi.mocked(agents.connect).mockResolvedValue(repo);
@@ -202,8 +201,6 @@ it('guides the first task into the existing exact prompt and explicit execution 
   );
   await user.click(screen.getByRole('button', { name: 'Run with AI' }));
   await user.click(screen.getByRole('button', { name: 'Find installation' }));
-  await user.click(screen.getByRole('button', { name: 'Continue to sign-in' }));
-  await user.click(screen.getByRole('button', { name: 'Continue' }));
   expect(
     (
       screen.getByRole('button', {
@@ -214,9 +211,6 @@ it('guides the first task into the existing exact prompt and explicit execution 
   vi.mocked(agents.connection).mockResolvedValue(repo);
   await user.click(screen.getByRole('button', { name: 'Select Git folder…' }));
   expect(agents.connect).toHaveBeenCalledWith('project');
-  await user.click(
-    screen.getByRole('button', { name: 'Continue to permissions' }),
-  );
   expect(agents.saveSettings).not.toHaveBeenCalled();
   await user.click(
     screen.getByRole('button', { name: 'Apply recommended configuration' }),
@@ -229,8 +223,6 @@ it('guides the first task into the existing exact prompt and explicit execution 
     }),
   );
   expect(agents.setConcurrency).toHaveBeenCalledWith(1);
-  await user.click(screen.getByRole('checkbox'));
-  await user.click(screen.getByRole('button', { name: 'Check readiness' }));
   expect(agents.preview).not.toHaveBeenCalled();
   expect(agents.start).not.toHaveBeenCalled();
   await user.click(screen.getByRole('button', { name: 'Preview first task' }));
@@ -301,17 +293,70 @@ it('recommended configuration preserves a required OS isolation block', async ()
   const user = userEvent.setup();
   render(<Onboarding onClose={vi.fn()} />);
   await user.click(screen.getByRole('button', { name: 'Find installation' }));
-  await user.click(screen.getByRole('button', { name: 'Continue to sign-in' }));
-  await user.click(screen.getByRole('button', { name: 'Continue' }));
   await user.click(
     screen.getByRole('button', { name: 'Apply recommended configuration' }),
   );
   expect(agents.saveSettings).toHaveBeenCalledWith(
     expect.objectContaining({ requireOsIsolation: true, policy: 'restricted' }),
   );
-  await user.click(screen.getByRole('checkbox'));
-  await user.click(screen.getByRole('button', { name: 'Check readiness' }));
-  expect(screen.queryByRole('button', { name: 'Finish setup' })).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'Finish setup' }));
+  expect(
+    screen.getByText('Complete the highlighted requirement before continuing.'),
+  ).toBeTruthy();
   expect(agents.preview).not.toHaveBeenCalled();
+  expect(agents.start).not.toHaveBeenCalled();
+});
+
+it('skips completed requirements and reports readiness without reauthorizing or starting tasks', async () => {
+  vi.mocked(agents.onboarding).mockResolvedValue(ready);
+  vi.mocked(agents.connection).mockResolvedValue({
+    id: 'repo',
+    projectId: 'project',
+    path: '/repo',
+    name: 'repo',
+    trusted: true,
+    connected: true,
+  });
+  const user = userEvent.setup();
+  render(<Onboarding projectId="project" onClose={vi.fn()} />);
+  await user.click(screen.getByRole('button', { name: 'Find installation' }));
+  expect(
+    screen.getByRole('heading', { name: 'Conservative permissions' }),
+  ).toBeTruthy();
+  const summary = screen.getByRole('list', { name: 'AI readiness' });
+  for (const label of [
+    'Installed: Yes',
+    'Signed in: Yes',
+    'Repository connected: Yes',
+    'Ready to run: Ready for your approval',
+  ]) {
+    expect(within(summary).getByText(label)).toBeTruthy();
+  }
+  expect(agents.authorizeDiscovered).not.toHaveBeenCalled();
+  expect(agents.login).not.toHaveBeenCalled();
+  expect(agents.connect).not.toHaveBeenCalled();
+  expect(agents.start).not.toHaveBeenCalled();
+});
+
+it('checks sign-in automatically after the explicitly opened browser flow finishes', async () => {
+  vi.mocked(agents.onboarding).mockResolvedValue({
+    ...ready,
+    authentication: 'unauthenticated',
+    ready: false,
+  });
+  vi.mocked(agents.loginStatus).mockResolvedValue('finished');
+  const user = userEvent.setup();
+  render(<Onboarding onClose={vi.fn()} />);
+  await user.click(screen.getByRole('button', { name: 'Find installation' }));
+  await user.click(screen.getByRole('button', { name: 'Open Codex login' }));
+  vi.mocked(agents.onboarding).mockResolvedValue(ready);
+  expect(
+    await screen.findByText(
+      'Authentication: authenticated',
+      {},
+      { timeout: 3000 },
+    ),
+  ).toBeTruthy();
+  expect(agents.login).toHaveBeenCalledOnce();
   expect(agents.start).not.toHaveBeenCalled();
 });

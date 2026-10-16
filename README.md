@@ -234,6 +234,6 @@ for manual inspection.
 
 Read [ARCHITECTURE](docs/ARCHITECTURE.md), [ROADMAP](docs/ROADMAP.md),
 [CONTRIBUTING](CONTRIBUTING.md), [SECURITY](SECURITY.md), and the actual validation
-record in [M01](M01.md) and [M02](M02.md) and [M03](M03.md) and [M04](M04.md) and [M05](M05.md) and [M06](M06.md), plus the hosted verification gate in [M06.1](M06.1.md) and release preparation in [M07](M07.md), and guided AI setup in [M08](M08.md).
+record in [M01](M01.md) and [M02](M02.md) and [M03](M03.md) and [M04](M04.md) and [M05](M05.md) and [M06](M06.md), plus the hosted verification gate in [M06.1](M06.1.md) and release preparation in [M07](M07.md), and guided AI setup in [M08](M08.md), plus first-run validation in [M09](M09.md).
 
 Licensed under [Apache-2.0](LICENSE).

@@ -44,7 +44,6 @@ export function Onboarding({
   const [error, setError] = useState('');
   const [login, setLogin] = useState('idle');
   const [notice, setNotice] = useState('');
-  const [checkedPermissions, setCheckedPermissions] = useState(false);
   const refresh = async () => {
     const data = await agents.onboarding(provider);
     setStatus(data);
@@ -52,6 +51,10 @@ export function Onboarding({
     const connected = projectId ? await agents.connection(projectId) : null;
     setRepository(connected);
     return { status: data, repository: connected };
+  };
+  const advance = (data: OnboardingStatus, connected: GitRepository | null) => {
+    const next = nextRequirement(data, !projectId || !!connected?.trusted);
+    setStep(next === 'ready' ? 'permissions' : next);
   };
   const perform = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -67,21 +70,44 @@ export function Onboarding({
   useEffect(() => {
     if (login !== 'running') return;
     let stale = false;
+    let checking = false;
     const timer = setInterval(() => {
+      if (checking) return;
+      checking = true;
       void agents
         .loginStatus()
         .then((state) => {
-          if (!stale) setLogin(state);
+          if (!stale) {
+            if (state === 'finished') {
+              return agents
+                .onboarding(provider)
+                .then((data) => {
+                  if (!stale) {
+                    setStatus(data);
+                    setLogin(state);
+                  }
+                })
+                .catch((e) => {
+                  if (!stale) {
+                    setLogin(state);
+                    setError(errorMessage(e));
+                  }
+                });
+            } else setLogin(state);
+          }
         })
         .catch((e) => {
           if (!stale) setError(errorMessage(e));
+        })
+        .finally(() => {
+          checking = false;
         });
     }, 1000);
     return () => {
       stale = true;
       clearInterval(timer);
     };
-  }, [login]);
+  }, [login, provider]);
   const closeSetup = () => {
     if (login === 'running')
       void perform(async () => {
@@ -95,9 +121,6 @@ export function Onboarding({
     provider === 'codex'
       ? 'https://developers.openai.com/codex/cli/'
       : 'https://code.claude.com/docs/en/quickstart';
-  const requirement = status
-    ? nextRequirement(status, !projectId || !!repository?.trusted)
-    : 'installation';
   return (
     <Dialog
       title="Set up AI"
@@ -112,8 +135,47 @@ export function Onboarding({
       className="issue-dialog"
     >
       <p role="status" aria-live="polite">
-        Step {setupSteps.indexOf(step) + 1} of {setupSteps.length}: {step}
+        {
+          {
+            provider: 'Choose a provider',
+            installation: 'Authorize installation',
+            authentication: 'Sign in',
+            repository: 'Connect your project',
+            permissions: 'Review permissions',
+            ready: 'Ready for task preview',
+          }[step]
+        }
       </p>
+      {status && (
+        <ul aria-label="AI readiness">
+          <li>
+            Installed:{' '}
+            {status.candidates.length || status.authorized
+              ? 'Yes'
+              : 'Not found'}
+          </li>
+          <li>
+            Signed in:{' '}
+            {status.authentication === 'authenticated'
+              ? 'Yes'
+              : 'Not confirmed'}
+          </li>
+          <li>
+            Repository connected:{' '}
+            {repository?.trusted
+              ? 'Yes'
+              : projectId
+                ? 'Choose a folder'
+                : 'Choose from a saved issue'}
+          </li>
+          <li>
+            Ready to run:{' '}
+            {status.ready && repository?.trusted
+              ? 'Ready for your approval'
+              : 'Complete setup below'}
+          </li>
+        </ul>
+      )}
       {busy && <p role="status">Checking setup…</p>}
       {error && <AgentError details={error} />}
       {notice && <p role="status">{notice}</p>}
@@ -127,7 +189,6 @@ export function Onboarding({
             onChange={(e) => {
               setProvider(e.target.value);
               setStatus(null);
-              setCheckedPermissions(false);
               setError('');
               setNotice('');
             }}
@@ -136,15 +197,15 @@ export function Onboarding({
             <option value="claude">Claude Code</option>
           </select>
           <p>
-            Provider inference may use the internet and your paid provider
-            account. Forma never asks for passwords, API keys or tokens.
+            AI tasks may use the internet and your paid provider account. Forma
+            never asks for passwords, API keys or tokens.
           </p>
           <Button
             disabled={busy}
             onClick={() =>
               void perform(async () => {
-                await refresh();
-                setStep('installation');
+                const current = await refresh();
+                advance(current.status, current.repository);
               })
             }
           >
@@ -155,56 +216,63 @@ export function Onboarding({
       {step === 'installation' && status && (
         <>
           <h3>Install and authorize {name}</h3>
-          <p>
-            {status.platform === 'windows'
-              ? 'Windows: use a native .exe installation. PowerShell, .cmd and .bat wrappers are not supported; do not disable Windows security.'
-              : status.platform === 'macos'
-                ? 'macOS: use the official native installation or Homebrew. Both Apple Silicon and Intel Homebrew locations are checked.'
-                : 'Linux: use the official native installation instructions for your distribution and architecture.'}
-          </p>
-          <p>
-            Installation is manual. Forma does not download installers, execute
-            installation commands, change PATH or request administrator
-            privileges.
-          </p>
-          <p className="git-target">{guide}</p>
-          <Button
-            variant="secondary"
-            disabled={busy}
-            onClick={() =>
-              void perform(async () => {
-                await agents.setupDocs(provider);
-              })
-            }
-          >
-            Open official installation guide
-          </Button>
-          {provider === 'claude' && status.platform !== 'linux' && (
-            <>
-              <label htmlFor="install-command">
-                Optional package manager command (run yourself)
-              </label>
-              <input
-                id="install-command"
-                readOnly
-                value={
-                  status.platform === 'windows'
-                    ? 'winget install Anthropic.ClaudeCode'
-                    : 'brew install --cask claude-code'
-                }
-              />
-              <p>
-                Requires {status.platform === 'windows' ? 'WinGet' : 'Homebrew'}{' '}
-                already installed. Select the command to copy it.
-              </p>
-            </>
-          )}
-          <p>
-            Prerequisites not found on PATH:{' '}
-            {status.prerequisites.join(', ') || 'none'}. Node/npm are optional
-            for native installs; Git is needed for project setup. These are file
-            checks, not version verification.
-          </p>
+          <details open={status.candidates.length === 0}>
+            <summary>Need to install {name}?</summary>
+            <p>
+              {status.platform === 'windows'
+                ? 'Windows: use a native .exe installation. PowerShell, .cmd and .bat wrappers are not supported; do not disable Windows security.'
+                : status.platform === 'macos'
+                  ? 'macOS: use the official native installation or Homebrew. Both Apple Silicon and Intel Homebrew locations are checked.'
+                  : 'Linux: use the official native installation instructions for your distribution and architecture.'}
+            </p>
+            <p>
+              Installation is manual. Forma does not download installers,
+              execute installation commands, change PATH or request
+              administrator privileges.
+            </p>
+            <p className="git-target">{guide}</p>
+            <Button
+              variant="secondary"
+              disabled={busy}
+              onClick={() =>
+                void perform(async () => {
+                  await agents.setupDocs(provider);
+                })
+              }
+            >
+              Open official installation guide
+            </Button>
+            {provider === 'claude' && status.platform !== 'linux' && (
+              <>
+                <label htmlFor="install-command">
+                  Optional package manager command (run yourself)
+                </label>
+                <input
+                  id="install-command"
+                  readOnly
+                  value={
+                    status.platform === 'windows'
+                      ? 'winget install Anthropic.ClaudeCode'
+                      : 'brew install --cask claude-code'
+                  }
+                />
+                <p>
+                  Requires{' '}
+                  {status.platform === 'windows' ? 'WinGet' : 'Homebrew'}{' '}
+                  already installed. Select the command to copy it.
+                </p>
+              </>
+            )}
+          </details>
+          <details>
+            <summary>Advanced installation details</summary>
+            <p>
+              Prerequisites not found on PATH:{' '}
+              {status.prerequisites.join(', ') || 'none'}. Node/npm are optional
+              for native installs; Git is needed for project setup. These are
+              file checks, not version verification.
+            </p>
+          </details>
           <p>
             Discovery:{' '}
             {status.candidates.length
@@ -221,13 +289,17 @@ export function Onboarding({
           {status.candidates.map((c) => (
             <article key={c.token}>
               <p className="git-target">{c.path}</p>
-              <p className="git-target">SHA-256: {c.sha256}</p>
+              <details>
+                <summary>Executable identity</summary>
+                <p className="git-target">SHA-256: {c.sha256}</p>
+              </details>
               <Button
                 disabled={busy}
                 onClick={() =>
                   void perform(async () => {
                     await agents.authorizeDiscovered(c.token);
-                    await refresh();
+                    const current = await refresh();
+                    advance(current.status, current.repository);
                   })
                 }
               >
@@ -241,7 +313,8 @@ export function Onboarding({
             onClick={() =>
               void perform(async () => {
                 await agents.authorize(provider);
-                await refresh();
+                const current = await refresh();
+                advance(current.status, current.repository);
               })
             }
           >
@@ -328,7 +401,7 @@ export function Onboarding({
           </p>
           <Button
             disabled={busy || status.authentication !== 'authenticated'}
-            onClick={() => setStep(projectId ? 'repository' : 'permissions')}
+            onClick={() => advance(status, repository)}
           >
             Continue
           </Button>
@@ -353,7 +426,9 @@ export function Onboarding({
               void perform(async () => {
                 if (projectId) {
                   await agents.connect(projectId);
-                  setRepository(await agents.connection(projectId));
+                  const connected = await agents.connection(projectId);
+                  setRepository(connected);
+                  if (connected?.trusted) setStep('permissions');
                 }
               })
             }
@@ -417,18 +492,13 @@ export function Onboarding({
           >
             Apply recommended configuration
           </Button>
-          <label>
-            <input
-              type="checkbox"
-              checked={checkedPermissions}
-              onChange={(e) => setCheckedPermissions(e.target.checked)}
-            />
-            I understand these permissions and will review each task before
-            approving execution.
-          </label>
           {status?.diagnostics && <AgentError details={status.diagnostics} />}
+          <p>
+            Review the exact task next. Only your final approval starts
+            execution.
+          </p>
           <Button
-            disabled={busy || !checkedPermissions}
+            disabled={busy}
             onClick={() =>
               void perform(async () => {
                 const current = await refresh();
@@ -436,45 +506,10 @@ export function Onboarding({
                   current.status,
                   !projectId || !!current.repository?.trusted,
                 );
-                setStep(next);
-                if (next !== 'ready')
+                if (next !== 'ready') {
+                  setStep(next);
                   setNotice(
                     'Complete the highlighted requirement before continuing.',
-                  );
-              })
-            }
-          >
-            Check readiness
-          </Button>
-        </>
-      )}
-      {step === 'ready' && (
-        <>
-          <h3>
-            {name} is ready
-            {projectId ? ' for task preview' : ' to connect to a project'}
-          </h3>
-          <p>
-            {projectId
-              ? 'Next, review the exact prompt, repository, executable and permissions. Only your final approval starts execution and prepares the working copy.'
-              : 'Open a saved issue and choose Run with AI to connect its Git folder, preview the task and approve execution.'}
-          </p>
-          <Button
-            disabled={busy || requirement !== 'ready'}
-            onClick={() =>
-              void perform(async () => {
-                const current = await refresh();
-                if (
-                  nextRequirement(
-                    current.status,
-                    !projectId || !!current.repository?.trusted,
-                  ) !== 'ready'
-                ) {
-                  setStep(
-                    nextRequirement(
-                      current.status,
-                      !projectId || !!current.repository?.trusted,
-                    ),
                   );
                   return;
                 }

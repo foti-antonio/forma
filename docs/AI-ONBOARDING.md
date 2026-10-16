@@ -5,6 +5,33 @@ in a saved issue. Save pending issue edits first. Choose Codex or Claude Code;
 using a provider can require its account, paid usage and internet connection.
 Forma never asks you to paste credentials.
 
+## M09: fewer steps for an existing installation
+
+Start with **Run with AI** in a saved issue. Choose your provider and **Find
+installation**, then authorize the discovered installation. Forma checks the
+existing provider session and goes directly to the next missing requirement.
+An already authorized, compatible and signed-in provider skips installation and
+sign-in pages. Selecting a Git folder advances directly to permission review.
+Permission review opens the exact task preview directly; the repeated generic
+acknowledgement and separate readiness page have been removed. Executable
+authorization, Claude host-risk consent and final task approval are unchanged.
+You can use **Back** to inspect earlier steps or sign in with another session.
+The wizard keeps **Installed**, **Signed in**, **Repository connected** and
+**Ready to run** visible together. Ready means ready for your final approval;
+it does not promise available credits, a clean repository or network access.
+The exact task preview still validates the repository and executable again.
+
+Installation help expands automatically when no installation is found; otherwise
+it is optional. Prerequisite checks and the executable SHA-256 are under advanced
+details. Candidate paths and explicit authorization stay visible. **Rescan
+installations** rechecks files and invalidates old scan tokens. Known native
+locations take priority over long or duplicate PATH entries. This can find a new
+native installation without restarting Forma; arbitrary changes to the desktop
+process's inherited PATH still need a restart or the native picker.
+After an explicitly opened browser login exits successfully, Forma checks sign-in
+again automatically. Failed/cancelled login keeps manual retry and **Check
+authentication** available; unknown status always blocks readiness.
+
 ## Guided flow
 
 1. **Find installation.** Forma checks absolute PATH directories and known native
@@ -111,3 +138,24 @@ approval, process supervision and repository authorization remain in force.
 Read [the security model](SECURITY-MODEL.md) and
 [agent integration](AGENTS-INTEGRATION.md). Native/platform verification and
 remaining friction are recorded in [M08](../M08.md).
+
+## Local first-run measurements
+
+The opt-in native smoke harness records numeric action counts, monotonic elapsed
+time, errors/recoveries and allowlisted stages in a local `metrics.json`. This is
+test tooling, not application telemetry. No prompt, account identifier, login
+output, repository path or credential is included in that metrics file. Temporary
+screenshots and native logs remain local; review them before sharing. Stage times
+include automation waits and are not human usability-study timings.
+
+On Linux use `python3 scripts/native-onboarding-smoke.py
+src-tauri/target/debug/forma`. Authenticated Codex testing additionally requires
+explicit user approval before adding `--real-codex --approve-real-provider`; it
+uses the installed CLI and existing login for exactly one small disposable task.
+The script does not install providers or start a new login in real-provider mode.
+On disposable Windows runners and macOS use `python3
+scripts/native-onboarding-platform.py <built Forma executable>`. Windows refuses
+non-ephemeral profiles or existing app data. macOS reports exit 77 if AX permission
+is unavailable, without requesting or bypassing permission. CI runs both macOS
+architectures and Windows; its uploaded numeric evidence distinguishes a pass
+from unavailable permission. See [M09](../M09.md) for actual executions and limits.

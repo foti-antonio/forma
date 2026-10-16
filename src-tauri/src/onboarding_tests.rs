@@ -249,3 +249,18 @@ fn discovery_does_not_execute_candidates_and_rescans_missing_or_incompatible_fil
     assert!(error.message.contains("lacks required security options"));
     assert!(!service.agent_onboarding("codex").unwrap().ready);
 }
+
+#[test]
+fn known_installations_survive_long_duplicate_paths() {
+    let home = std::env::temp_dir().join("forma-discovery-home");
+    let paths = vec![home.join("bin"); 256];
+    for platform in ["linux", "macos", "windows"] {
+        let files = locations(platform, "codex", Some(&home), Some(&home), paths.clone());
+        assert!(files.contains(&home.join(if platform == "windows" {
+            ".local/bin/codex.exe"
+        } else {
+            ".local/bin/codex"
+        })));
+        assert!(files.len() < 128);
+    }
+}

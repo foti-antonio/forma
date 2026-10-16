@@ -246,3 +246,17 @@ added. Login output is not persisted. Fixed provider-documentation opening is a
 narrow Rust command, not a general renderer opener capability. First-task setup
 returns the existing `AgentPreview` and uses the existing single-use approval,
 execution coordinator, worktree service and result UI.
+
+## M09 first-run validation
+
+The onboarding coordinator selects the next missing requirement from the same
+Rust-owned status and repository authorization. Successful explicitly initiated
+browser login triggers another status check; authorization and final execution
+remain separate user actions. No new persistence, IPC, capability or execution
+path is introduced. Known native installation directories are reserved before
+bounded PATH scanning, so duplicate/long PATHs cannot hide those locations.
+Local test-only measurement code records numeric counts/times and allowlisted
+stages. Native Windows UI Automation and macOS AX drivers exercise the existing
+forms and native folder picker using an isolated compiled provider, with read-only
+SQLite/worktree verification by their Python harness. Unavailable macOS AX access
+is reported as unverified rather than a pass.

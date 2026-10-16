@@ -55,7 +55,8 @@ pub(crate) fn locations(
     } else {
         provider.into()
     };
-    let mut dirs = path;
+    // Reserve the bounded scan for known locations before potentially long PATHs.
+    let mut dirs = Vec::new();
     if let Some(home) = home {
         dirs.push(home.join(".local/bin"));
     }
@@ -73,11 +74,15 @@ pub(crate) fn locations(
             PathBuf::from("/usr/local/bin"),
         ]);
     }
+    dirs.extend(path);
     let mut result = Vec::new();
-    for dir in dirs.into_iter().filter(|p| p.is_absolute()).take(128) {
+    for dir in dirs.into_iter().filter(|p| p.is_absolute()) {
         let file = dir.join(&name);
         if !result.contains(&file) {
             result.push(file);
+            if result.len() == 128 {
+                break;
+            }
         }
     }
     result
@@ -94,7 +99,7 @@ fn discover(provider: &str) -> Vec<Candidate> {
     let mut dirs = paths();
     if provider == "codex" {
         if let Some(dir) = std::env::var_os("CODEX_INSTALL_DIR") {
-            dirs.push(PathBuf::from(dir));
+            dirs.insert(0, PathBuf::from(dir));
         }
     }
     scan_files(locations(
