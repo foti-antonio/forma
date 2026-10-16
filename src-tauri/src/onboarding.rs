@@ -139,7 +139,10 @@ pub(crate) fn auth_result(provider: &str, result: &engine::Execution) -> &'stati
                 _ => "unknown",
             };
         }
-    } else if result.exit == Some(0) && result.log.to_lowercase().contains("logged in") {
+    } else if result.exit == Some(0)
+        && result.log.to_lowercase().contains("logged in")
+        && !result.log.to_lowercase().contains("not logged in")
+    {
         return "authenticated";
     } else if result.exit == Some(1) && result.log.to_lowercase().contains("not logged in") {
         return "unauthenticated";
@@ -147,6 +150,22 @@ pub(crate) fn auth_result(provider: &str, result: &engine::Execution) -> &'stati
     "unknown"
 }
 impl Service {
+    pub fn agent_setup_guide(provider: &str) -> Result<&'static str> {
+        engine::provider(provider)?;
+        Ok(if provider == "codex" {
+            "https://developers.openai.com/codex/cli/"
+        } else {
+            "https://code.claude.com/docs/en/quickstart"
+        })
+    }
+    pub fn agent_login_status(&self) -> Result<String> {
+        Ok(self
+            .agents
+            .login
+            .as_ref()
+            .map(|l| l.state.lock().unwrap_or_else(|e| e.into_inner()).clone())
+            .unwrap_or_else(|| "idle".into()))
+    }
     pub fn agent_onboarding(&mut self, provider: &str) -> Result<Onboarding> {
         engine::provider(provider)?;
         self.agents.discovered.retain(|_, c| {
@@ -173,12 +192,7 @@ impl Service {
             ready: false,
             diagnostics: String::new(),
             prerequisites: Vec::new(),
-            login: self
-                .agents
-                .login
-                .as_ref()
-                .map(|l| l.state.lock().unwrap_or_else(|e| e.into_inner()).clone())
-                .unwrap_or_else(|| "idle".into()),
+            login: self.agent_login_status()?,
         };
         for name in ["git", "node", "npm"] {
             let present = paths().into_iter().filter(|p| p.is_absolute()).any(|p| {

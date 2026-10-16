@@ -18,6 +18,15 @@ fn status(exit: Option<i32>, log: &str) -> engine::Execution {
 }
 #[test]
 fn authentication_is_explicit_and_unknown_responses_fail_closed() {
+    assert!(crate::service::Service::agent_setup_guide("https://untrusted.example").is_err());
+    assert_eq!(
+        crate::service::Service::agent_setup_guide("codex").unwrap(),
+        "https://developers.openai.com/codex/cli/"
+    );
+    assert_eq!(
+        auth_result("codex", &status(Some(0), "Not logged in")),
+        "unknown"
+    );
     assert_eq!(
         auth_result("codex", &status(Some(0), "Logged in using ChatGPT")),
         "authenticated"
@@ -223,6 +232,13 @@ fn discovery_does_not_execute_candidates_and_rescans_missing_or_incompatible_fil
     assert!(result.authorized && result.compatible);
     assert_eq!(result.authentication, "unauthenticated");
     assert!(!result.ready);
+    #[cfg(windows)]
+    {
+        let wrapper = dir.path().join("codex.cmd");
+        std::fs::write(&wrapper, "@echo off\r\nexit /b 0\r\n").unwrap();
+        assert!(engine::executable(&wrapper).is_err());
+        assert!(service.agent_authorize("codex", &wrapper).is_err());
+    }
     let old_cli = dir.path().join(if cfg!(windows) {
         "codex-incompatible.exe"
     } else {

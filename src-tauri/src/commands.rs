@@ -697,12 +697,7 @@ pub async fn agent_cancel_login<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> 
 }
 #[tauri::command]
 pub async fn agent_setup_docs(provider: String) -> Result<()> {
-    crate::agent_provider::provider(&provider)?;
-    let url = if provider == "codex" {
-        "https://developers.openai.com/codex/cli/"
-    } else {
-        "https://code.claude.com/docs/en/quickstart"
-    };
+    let url = Service::agent_setup_guide(&provider)?;
     opener::open(url).map_err(|_| {
         crate::agent_provider::error(
             "Could not open the official installation guide. Copy its address into your browser.",
@@ -712,12 +707,5 @@ pub async fn agent_setup_docs(provider: String) -> Result<()> {
 
 #[tauri::command]
 pub async fn agent_login_status<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<String> {
-    git_task(app, |s| {
-        Ok(s.agents
-            .login
-            .as_ref()
-            .map(|l| l.state.lock().unwrap_or_else(|e| e.into_inner()).clone())
-            .unwrap_or_else(|| "idle".into()))
-    })
-    .await
+    git_task(app, |s| s.agent_login_status()).await
 }
