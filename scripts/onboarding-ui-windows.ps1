@@ -27,7 +27,7 @@ function Find-Named([string]$Name, [bool]$Edit = $false, [bool]$Pressable = $fal
   # Owned native dialogs may be separate UIA root windows. Search every
   # top-level window belonging to this process, never another application.
   $windows = $A::RootElement.FindAll([System.Windows.Automation.TreeScope]::Children, $pidCondition)
-  $condition = [System.Windows.Automation.PropertyCondition]::new($A::NameProperty, $Name)
+  $condition = [System.Windows.Automation.PropertyCondition]::new($A::NameProperty, $Name, [System.Windows.Automation.PropertyConditionFlags]::IgnoreCase)
   if ($Edit) {
     $condition = [System.Windows.Automation.AndCondition]::new($condition,
       [System.Windows.Automation.PropertyCondition]::new($A::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit))
@@ -58,14 +58,18 @@ function Wait-Node([string]$Name, [bool]$Edit = $false, [bool]$Pressable = $fals
   # diagnose a missing native control without silently skipping the test.
   $windows = $A::RootElement.FindAll([System.Windows.Automation.TreeScope]::Children, $pidCondition)
   for ($w = 0; $w -lt $windows.Count; $w++) {
-    $controls = $windows[$w].FindAll($scope, [System.Windows.Automation.Condition]::TrueCondition)
-    for ($i = 0; $i -lt [Math]::Min(60, $controls.Count); $i++) {
+    $rootWindow = $windows[$w]
+    $controls = $rootWindow.FindAll($scope, [System.Windows.Automation.Condition]::TrueCondition)
+    Write-Output ('UIA window: ' + $rootWindow.Current.Name + ' / descendants: ' + $controls.Count)
+    $shown = 0
+    for ($i = 0; $i -lt $controls.Count -and $shown -lt 80; $i++) {
       try {
         $info = $controls[$i].Current
-        if (!$info.IsOffscreen) {
-          $label = [string]$info.Name
+        $label = [string]$info.Name
+        if (!$info.IsOffscreen -or $label -match 'Select|Folder|Address|Connect Git') {
           if ($label.Length -gt 120) { $label = $label.Substring(0, 120) }
-          Write-Output ('UIA diagnostic: ' + $info.ControlType.ProgrammaticName + ' / ' + $info.AutomationId + ' / ' + $label)
+          Write-Output ('UIA diagnostic: ' + $info.ControlType.ProgrammaticName + ' / ' + $info.AutomationId + ' / offscreen=' + $info.IsOffscreen + ' / ' + $label)
+          $shown++
         }
       } catch [System.Windows.Automation.ElementNotAvailableException] { }
     }
