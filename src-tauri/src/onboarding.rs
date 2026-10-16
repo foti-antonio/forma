@@ -59,9 +59,12 @@ pub(crate) fn locations(
     if let Some(home) = home {
         dirs.push(home.join(".local/bin"));
     }
-    if platform == "windows" && provider == "codex" {
+    if platform == "windows" {
         if let Some(local) = local_app_data {
-            dirs.push(local.join("Programs/OpenAI/Codex/bin"));
+            dirs.push(local.join("Microsoft/WinGet/Links"));
+            if provider == "codex" {
+                dirs.push(local.join("Programs/OpenAI/Codex/bin"));
+            }
         }
     }
     if platform == "macos" {

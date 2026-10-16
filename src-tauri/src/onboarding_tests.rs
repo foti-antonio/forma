@@ -83,6 +83,7 @@ fn all_platform_search_policies_ignore_relative_path_and_wrappers() {
             .iter()
             .all(|p| p.is_absolute() && !p.to_string_lossy().ends_with(".cmd")));
         if platform == "windows" {
+            assert!(candidates.contains(&home.join("Microsoft/WinGet/Links/codex.exe")));
             assert!(candidates.contains(&home.join("Programs/OpenAI/Codex/bin/codex.exe")));
         }
         if platform == "macos" && !cfg!(windows) {

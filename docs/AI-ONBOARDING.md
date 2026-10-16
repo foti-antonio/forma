@@ -60,6 +60,12 @@ Instructions were checked against official documentation on 2026-10-16:
 - [Codex login/status](https://learn.chatgpt.com/docs/developer-commands?surface=cli)
   and [Claude auth login/status](https://code.claude.com/docs/en/cli-reference).
 
+Windows discovery also checks the documented per-user
+[WinGet portable links directory](https://github.com/microsoft/winget-cli/blob/master/doc/specs/%23182%20-%20Support%20for%20installation%20of%20portable%20standalone%20apps.md),
+`%LOCALAPPDATA%\Microsoft\WinGet\Links`, so a supported portable installation
+can be found before Forma receives a refreshed PATH. No package-manager query is
+executed during discovery.
+
 The UI offers the documented `brew install --cask claude-code` on macOS and
 `winget install Anthropic.ClaudeCode` on Windows as selectable, copyable text.
 These need the corresponding package manager installed. Linux instructions link
