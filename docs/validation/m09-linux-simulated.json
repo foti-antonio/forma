@@ -4,35 +4,35 @@
   "result": "passed",
   "actions": 28,
   "errors": 0,
-  "recoveries": 2,
-  "elapsed_seconds": 112.252,
+  "recoveries": 4,
+  "elapsed_seconds": 112.949,
   "stages": {
     "setup": {
-      "elapsed_seconds": 3.077,
+      "elapsed_seconds": 3.211,
       "actions": 3
     },
     "authorized": {
-      "elapsed_seconds": 13.996,
+      "elapsed_seconds": 14.487,
       "actions": 5
     },
     "signed_in": {
-      "elapsed_seconds": 37.949,
+      "elapsed_seconds": 38.578,
       "actions": 10
     },
     "repository": {
-      "elapsed_seconds": 82.65,
+      "elapsed_seconds": 83.566,
       "actions": 23
     },
     "preview": {
-      "elapsed_seconds": 107.169,
+      "elapsed_seconds": 107.907,
       "actions": 25
     },
     "completed": {
-      "elapsed_seconds": 109.493,
+      "elapsed_seconds": 110.218,
       "actions": 26
     },
     "reviewed": {
-      "elapsed_seconds": 112.252,
+      "elapsed_seconds": 112.949,
       "actions": 28
     }
   }

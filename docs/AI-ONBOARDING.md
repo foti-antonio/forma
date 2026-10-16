@@ -141,11 +141,12 @@ remaining friction are recorded in [M08](../M08.md).
 
 ## Local first-run measurements
 
-The opt-in native smoke harness records numeric action counts, monotonic elapsed
+The opt-in native smoke harness records numeric action counts, elapsed
 time, errors/recoveries and allowlisted stages in a local `metrics.json`. This is
 test tooling, not application telemetry. No prompt, account identifier, login
 output, repository path or credential is included in that metrics file. Temporary
-screenshots and native logs remain local; review them before sharing. Stage times
+screenshots and native logs remain local; review them before sharing. The Python collector uses a monotonic clock; the native Windows/macOS drivers use
+elapsed host-clock values. Stage times
 include automation waits and are not human usability-study timings.
 
 On Linux use `python3 scripts/native-onboarding-smoke.py
