@@ -1,6 +1,6 @@
 {
   "actions": 20,
-  "elapsed_seconds": 42.240720987319946,
+  "elapsed_seconds": 34.736814975738525,
   "errors": 0,
   "evidence": "simulated",
   "recoveries": 0,
@@ -9,31 +9,31 @@
   "stages": {
     "authorized": {
       "actions": 14,
-      "elapsed_seconds": 9.999090075492859
+      "elapsed_seconds": 10.196233034133911
     },
     "completed": {
       "actions": 19,
-      "elapsed_seconds": 41.56481397151947
+      "elapsed_seconds": 34.07932698726654
     },
     "preview": {
       "actions": 17,
-      "elapsed_seconds": 39.651512026786804
+      "elapsed_seconds": 32.416074991226196
     },
     "repository": {
       "actions": 16,
-      "elapsed_seconds": 38.9711229801178
+      "elapsed_seconds": 31.8352609872818
     },
     "reviewed": {
       "actions": 20,
-      "elapsed_seconds": 42.23957800865173
+      "elapsed_seconds": 34.73566198348999
     },
     "setup": {
       "actions": 12,
-      "elapsed_seconds": 8.424787044525146
+      "elapsed_seconds": 8.545370936393738
     },
     "signed_in": {
       "actions": 14,
-      "elapsed_seconds": 10.001368999481201
+      "elapsed_seconds": 10.197566032409668
     }
   }
 }
