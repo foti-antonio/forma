@@ -100,26 +100,34 @@ if ($folder -and $folder.TryGetCurrentPattern([System.Windows.Automation.ValuePa
   Write-Output 'Native folder selection: labelled path field'
   $folderPattern.SetValue($Repository)
 } else {
-  # Some Windows builds expose only the address bar. Scope every key to Forma
-  # and wait for an editable Value pattern rather than using a fixed delay.
+  # Some Windows builds expose no writable UIA pattern in this dialog.
+  # Use normal address-bar keys, scoped to the exact native picker window.
   Add-Type -AssemblyName System.Windows.Forms
   Add-Type 'using System; using System.Runtime.InteropServices; public class OnboardingWindow { [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint p); }'
-  [uint32]$foregroundPid = 0
-  $null = [OnboardingWindow]::GetWindowThreadProcessId([OnboardingWindow]::GetForegroundWindow(), [ref]$foregroundPid)
-  if ($foregroundPid -ne $AppPid) { throw 'Refusing keyboard input outside Forma' }
-  [System.Windows.Forms.SendKeys]::SendWait('%d')
-  $end = (Get-Date).AddSeconds(10)
-  do {
-    $address = $A::FocusedElement
-    $folderPattern = $null
-    if ($address.Current.ProcessId -eq $AppPid -and $address.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$folderPattern)) { break }
-    Start-Sleep -Milliseconds 100
-  } while ((Get-Date) -lt $end)
-  if (!$folderPattern) { throw 'Native picker did not expose an editable address field' }
-  $folderPattern.SetValue($Repository)
-  $null = [OnboardingWindow]::GetWindowThreadProcessId([OnboardingWindow]::GetForegroundWindow(), [ref]$foregroundPid)
-  if ($foregroundPid -ne $AppPid) { throw 'Refusing keyboard input outside Forma' }
-  [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+  function Picker-Keys([string]$Keys) {
+    [uint32]$foregroundPid = 0
+    $foreground = [OnboardingWindow]::GetForegroundWindow()
+    $null = [OnboardingWindow]::GetWindowThreadProcessId($foreground, [ref]$foregroundPid)
+    $active = $A::FromHandle($foreground)
+    if ($foregroundPid -ne $AppPid -or $active.Current.Name -ne 'Connect Git repository') {
+      throw 'Refusing keyboard input outside the native Forma folder picker'
+    }
+    [System.Windows.Forms.SendKeys]::SendWait($Keys)
+  }
+  # Some native accessibility providers report a Pane as focused even while the
+  # address edit has keyboard focus. Type through the public keyboard interface;
+  # escape SendKeys metacharacters (including the CI profile's RUNNER~1 path).
+  Picker-Keys '%d'
+  Start-Sleep -Milliseconds 500
+  $escapedPath = -join ($Repository.ToCharArray() | ForEach-Object {
+    if ('+^%~()[]{}'.Contains([string]$_)) { '{' + $_ + '}' } else { [string]$_ }
+  })
+  Write-Output 'Native folder selection: scoped address-bar keys'
+  Picker-Keys '^a'
+  Picker-Keys $escapedPath
+  Picker-Keys '{ENTER}'
+  Start-Sleep -Milliseconds 750
+
 }
 Click 'Select Folder'
 $null = Wait-Node 'Preview first task'
