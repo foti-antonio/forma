@@ -176,7 +176,7 @@ function Settings() {
           <p className="muted">
             Choose a trusted installation. Selecting a file authorizes
             version/help commands. Forma checks its identity again before
-            execution. Sign in using the provider CLI outside Forma.
+            execution. Use Set up AI for guided provider sign-in.
           </p>
           <Button
             type="button"
@@ -288,7 +288,10 @@ export function IssueAgent({
       <details
         className="issue-related"
         open={expanded}
-        onToggle={(e) => setExpanded(e.currentTarget.open)}
+        onToggle={(e) => {
+          setExpanded(e.currentTarget.open);
+          if (!e.currentTarget.open) setFirstPreview(null);
+        }}
       >
         <summary>AI Agent</summary>
         {expanded && (
@@ -671,7 +674,7 @@ function Runs({ issue, revision = 0 }: { issue?: Issue; revision?: number }) {
           <p>
             {review.run.status} · Exit {review.run.exitCode ?? '—'}
           </p>
-          <p>{review.run.result}</p>
+          <p>{agentExplanation(review.run.result)}</p>
           <p>
             +{review.result.additions} / −{review.result.deletions} lines{' '}
             {review.result.truncated && '· Display truncated'}

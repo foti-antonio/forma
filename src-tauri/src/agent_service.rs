@@ -84,12 +84,24 @@ impl Service {
         input.trusted = previous.trusted;
         self.repo.agent_save_settings(&input)
     }
-    /// Only native picker paths reach this method. Picking explicitly authorizes
-    /// invoking the selected binary for version/help inspection and future previews.
+    /// Native picker authorization; discovered candidates use a bound expected digest.
     pub fn agent_authorize(&mut self, provider: &str, path: &Path) -> Result<()> {
+        self.agent_authorize_identity(provider, path, None)
+    }
+    pub(crate) fn agent_authorize_identity(
+        &mut self,
+        provider: &str,
+        path: &Path,
+        expected: Option<&str>,
+    ) -> Result<()> {
         let mut settings = self.agent_setting(provider)?;
         let exe = engine::executable(path)?;
         let digest = engine::digest(&exe)?;
+        if expected.is_some_and(|expected| expected != digest) {
+            return Err(engine::error(
+                "Executable changed since discovery. Rescan and authorize again.",
+            ));
+        }
         engine::probe(&exe, provider)?;
         if engine::executable(path)? != exe || engine::digest(&exe)? != digest {
             return Err(engine::error(

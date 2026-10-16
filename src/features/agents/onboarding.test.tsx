@@ -283,3 +283,35 @@ it.each([
 ])('makes errors actionable: %s', (details) => {
   expect(agentExplanation(details)).not.toBe(details);
 });
+it('recommended configuration preserves a required OS isolation block', async () => {
+  vi.mocked(agents.onboarding).mockResolvedValue({
+    ...ready,
+    ready: false,
+    diagnostics: 'Whole-provider OS isolation is required.',
+  });
+  const settings = (await agents.providers())[0].settings;
+  vi.mocked(agents.providers).mockResolvedValue([
+    {
+      settings: { ...settings, requireOsIsolation: true },
+      version: 'fixture',
+      available: true,
+      message: 'Blocked',
+    },
+  ]);
+  const user = userEvent.setup();
+  render(<Onboarding onClose={vi.fn()} />);
+  await user.click(screen.getByRole('button', { name: 'Find installation' }));
+  await user.click(screen.getByRole('button', { name: 'Continue to sign-in' }));
+  await user.click(screen.getByRole('button', { name: 'Continue' }));
+  await user.click(
+    screen.getByRole('button', { name: 'Apply recommended configuration' }),
+  );
+  expect(agents.saveSettings).toHaveBeenCalledWith(
+    expect.objectContaining({ requireOsIsolation: true, policy: 'restricted' }),
+  );
+  await user.click(screen.getByRole('checkbox'));
+  await user.click(screen.getByRole('button', { name: 'Check readiness' }));
+  expect(screen.queryByRole('button', { name: 'Finish setup' })).toBeNull();
+  expect(agents.preview).not.toHaveBeenCalled();
+  expect(agents.start).not.toHaveBeenCalled();
+});

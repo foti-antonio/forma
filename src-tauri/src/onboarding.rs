@@ -262,7 +262,7 @@ impl Service {
                 "Executable changed since discovery. Rescan and review its identity again.",
             ));
         }
-        self.agent_authorize(&c.provider, &path)
+        self.agent_authorize_identity(&c.provider, &path, Some(&c.candidate.sha256))
     }
     pub fn agent_login(&mut self, provider: &str, approved: bool) -> Result<()> {
         if !approved {
