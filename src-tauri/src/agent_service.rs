@@ -24,6 +24,8 @@ pub(crate) struct Prepared {
 #[derive(Default)]
 pub(crate) struct Agents {
     pub(crate) pending: HashMap<String, Prepared>,
+    pub(crate) discovered: HashMap<String, crate::onboarding::Discovered>,
+    pub(crate) login: Option<crate::onboarding::Login>,
     pub(crate) queue_generation: u64,
     pub(crate) queue_session: Option<std::collections::HashSet<String>>,
     pub(crate) test_pending: HashMap<String, crate::agent_types::TestPreview>,
@@ -89,6 +91,11 @@ impl Service {
         let exe = engine::executable(path)?;
         let digest = engine::digest(&exe)?;
         engine::probe(&exe, provider)?;
+        if engine::executable(path)? != exe || engine::digest(&exe)? != digest {
+            return Err(engine::error(
+                "Executable changed during inspection. Rescan and authorize again.",
+            ));
+        }
         settings.executable = Some(exe.to_string_lossy().into_owned());
         settings.trusted = true;
         self.repo.agent_save_settings(&settings)?;
@@ -99,7 +106,7 @@ impl Service {
         self.agents.pending.clear();
         Ok(())
     }
-    fn agent_executable(&self, provider: &str) -> Result<PathBuf> {
+    pub(crate) fn agent_executable(&self, provider: &str) -> Result<PathBuf> {
         let settings = self.agent_setting(provider)?;
         if !settings.trusted {
             return Err(engine::error(

@@ -56,7 +56,30 @@ async function command<T>(
     };
   return invoke<T>(name, args);
 }
+export interface OnboardingStatus {
+  provider: string;
+  platform: string;
+  candidates: { token: string; path: string; sha256: string }[];
+  authorized: boolean;
+  compatible: boolean;
+  authentication:
+    'authenticated' | 'unauthenticated' | 'unavailable' | 'unknown';
+  ready: boolean;
+  diagnostics: string;
+  prerequisites: string[];
+  login: string;
+}
 export const api = {
+  agentOnboarding: (provider: string) =>
+    command<OnboardingStatus>('agent_onboarding', { provider }),
+  agentAuthorizeDiscovered: (token: string) =>
+    command<void>('agent_authorize_discovered', { token, confirmed: true }),
+  agentLogin: (provider: string) =>
+    command<void>('agent_login', { provider, approved: true }),
+  agentCancelLogin: () => command<void>('agent_cancel_login'),
+  agentLoginStatus: () => command<string>('agent_login_status'),
+  agentSetupDocs: (provider: string) =>
+    command<void>('agent_setup_docs', { provider }),
   agentProviders: () => command<ProviderStatus[]>('agent_providers'),
   agentPreferred: () => command<string>('agent_preferred'),
   agentSavePreferences: (preferred: string) =>

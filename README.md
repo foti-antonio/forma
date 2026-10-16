@@ -116,9 +116,11 @@ restarts. Git inspection is offline. Agent runs add narrowly scoped worktree/bra
 provider inference may require network access. Restored repository paths
 require selecting the folder again. See [GIT](docs/GIT.md) for scope and limits.
 
-Open **AI agents & runs** for provider settings and run history. Authorize a
-trusted installed executable with the native picker and authenticate through its
-CLI outside Forma. In a saved issue, expand **AI Agent**, preview the task and
+Open **AI agents & runs** for provider settings and run history. Choose **Agent settings → Set up AI** for guided installation detection,
+executable authorization and provider browser sign-in. In a saved issue, **Run
+with AI** guides missing requirements, connects its Git folder with the native
+picker and previews the exact task. See [AI onboarding](docs/AI-ONBOARDING.md).
+You can also expand **AI Agent**, preview the task and
 explicitly approve immediate execution or add the task to the persistent queue. Codex uses workspace-write command restrictions;
 Claude's restricted file tools require acknowledgement of the missing OS sandbox. Monitor,
 cancel and inspect results, then accept/reject for manual integration. No commits,

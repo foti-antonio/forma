@@ -11,6 +11,9 @@ fn main() {
  }
  if args.contains(&"--version".into()){if std::env::current_exe().unwrap().file_name().unwrap().to_string_lossy().contains("claude") {println!("2.1.0 (Claude Code)");} else {println!("codex-cli simulated-m05");}return;}
  if args.contains(&"--help".into()){for n in 0..260 {println!("Capability detail line {n}");}println!("--no-daemon --ask-for-approval --color --sandbox --json --ignore-user-config --ignore-rules --ephemeral --restricted --print --output-format --permission-mode --tools --allowedTools --strict-mcp-config --mcp-config --settings --verbose --no-session-persistence dontAsk stream-json");return;}
+ if args==["login","status"] {println!("Logged in using ChatGPT");return;}
+ if args==["auth","status"] {println!("{{\"loggedIn\":false}}");std::process::exit(1);}
+ if args==["login"] || args==["auth","login"] {std::thread::sleep(Duration::from_secs(30));return;}
  if args.contains(&"--descendant".into()){std::thread::sleep(Duration::from_secs(3));std::fs::write("escaped-descendant.txt","bad").unwrap();return;}
  if args.first().map(String::as_str)==Some("--forma-test") {
   std::fs::write("independent-arguments.txt",args.join("\n")).unwrap();

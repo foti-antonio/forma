@@ -233,3 +233,15 @@ state. Backup format 4 accepts exact released schema 3/4/5 snapshots, migrates i
 staging and strips every executable/repository/worktree authorization. Startup
 invalidates unused queue approvals and interrupts unfinished agents/tests. See
 [MULTI-AGENT](MULTI-AGENT.md) for invariants and [M06](../M06.md) for evidence.
+
+## M08 provider onboarding
+
+`Onboarding.tsx` and its pure requirement state function route setup through the
+agent feature coordinator and typed IPC. `onboarding.rs` owns bounded discovery,
+identity-bound expiring authorization tokens, documented authentication status
+and explicit supervised login. Provider/repository settings still use the existing
+Rust service/repositories and schema 6; no migration or browser persistence was
+added. Login output is not persisted. Fixed provider-documentation opening is a
+narrow Rust command, not a general renderer opener capability. First-task setup
+returns the existing `AgentPreview` and uses the existing single-use approval,
+execution coordinator, worktree service and result UI.

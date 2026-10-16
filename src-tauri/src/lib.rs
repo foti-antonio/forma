@@ -63,3 +63,8 @@ mod agent_tests;
 
 #[cfg(test)]
 mod execution_tests;
+
+mod onboarding;
+
+#[cfg(test)]
+mod onboarding_tests;

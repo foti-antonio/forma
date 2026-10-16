@@ -102,3 +102,14 @@ Deleting the application does not intentionally delete this directory. It contai
 SQLite, recovery files and retained agent worktrees. Export backups and preserve
 worktree changes before deliberately deleting data. Backups exclude worktree and
 repository contents. See [troubleshooting](TROUBLESHOOTING.md).
+
+## Optional AI provider setup
+
+After installing Forma, open **AI agents & runs → Agent settings → Set up AI**.
+Choose Codex or Claude Code. The wizard finds supported native installations,
+links official OS-specific installation instructions, and supports rescanning,
+explicit executable authorization and provider-owned browser sign-in. Forma does
+not install providers, change PATH or collect credentials. Windows shell wrappers
+are unsupported; use the official native `.exe`. Open **Run with AI** in a saved
+issue to connect its Git folder and preview an approved first task. See
+[AI onboarding](AI-ONBOARDING.md) for steps, diagnostics and security limits.

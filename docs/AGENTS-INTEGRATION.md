@@ -31,7 +31,7 @@ SQLite repository/provider supervisor. Blocking commands execute away from the
 WebView. Each supervisor owns a separate SQLite connection. No filesystem, shell
 or network plugin is exposed to JavaScript; Tauri capabilities remain unchanged.
 
-Only native file selection authorizes a CLI. PATH discovery is informational and
+Native file selection or explicit authorization of a Rust-discovered candidate authorizes a CLI. PATH discovery is informational and
 never executes a candidate. Authorization stores a canonical path and SHA-256
 identity. A changed executable needs selection again, including after upgrades.
 Unix group/world-writable executable files are rejected. Windows requires native
@@ -173,3 +173,26 @@ Whole-provider OS containment is unavailable. Enabling **Require whole-provider
 OS isolation** blocks execution and never falls back. Codex/Claude restrictions
 and residual host exposure remain as described above. M06 real provider and native
 platform evidence is recorded in [M06](../M06.md); M05 evidence is historical.
+
+## M08 guided onboarding
+
+Use **Set up AI** in Agent settings or **Run with AI** in a saved issue. The
+[onboarding guide](AI-ONBOARDING.md) describes installation, authorization,
+authentication, repository connection, permissions and first-task approval.
+Discovery checks PATH and documented native locations without executing candidates.
+Explicit authorization binds a five-minute scan token to its canonical path and
+SHA-256, reuses capability inspection and saves the existing provider settings.
+No arbitrary executable path IPC is exposed. Native picker authorization remains.
+
+Only authorized, unchanged executables can run documented `codex login status`
+or `claude auth status`. Browser login (`codex login` / `claude auth login`) needs
+an explicit click, uses bounded process supervision and supports cancellation.
+No credential files are inspected by Forma; login output is discarded and never
+saved. Missing/unknown status cannot report readiness. Installation is manual and
+provider-owned; official guides and copyable commands do not execute installers.
+
+The recommended settings action is explicit and preserves any whole-provider OS
+isolation requirement. It never grants per-task approval or Claude risk consent.
+First-task setup opens the same existing exact-prompt preview and coordinator;
+worktrees are created only after execution approval. Existing queue, progress,
+cancellation, results and review remain the only task execution lifecycle.

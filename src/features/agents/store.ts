@@ -2,6 +2,14 @@ import { api } from '../../lib/ipc';
 // All agent reads and mutations cross the feature-store boundary. Drafts and
 // mounted, bounded history pages stay local to their owning dialog.
 export const agents = {
+  onboarding: api.agentOnboarding,
+  authorizeDiscovered: api.agentAuthorizeDiscovered,
+  login: api.agentLogin,
+  cancelLogin: api.agentCancelLogin,
+  loginStatus: api.agentLoginStatus,
+  setupDocs: api.agentSetupDocs,
+  connection: api.gitConnection,
+  connect: api.gitConnect,
   testProject: api.testProject,
   queueStop: api.agentQueueStop,
   worktrees: api.agentWorktrees,

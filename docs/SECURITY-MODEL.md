@@ -23,7 +23,8 @@ vulnerability could still cross these boundaries; keep dependencies patched.
 
 ## Executable authorization and approval
 
-Selecting a trusted executable authorizes bounded help/version execution. Native
+Selecting a trusted executable or explicitly authorizing a discovered canonical
+path/digest authorizes bounded help/version and authentication status execution. Native
 canonical path and SHA-256 identity are stored and rechecked; changes require
 reauthorization. Unix setuid/setgid and group/world-writable files and Windows shell wrappers are
 rejected. This establishes selected-file identity, not software publisher trust.
@@ -80,3 +81,24 @@ Protected Authenticode signing and Developer ID/notarization plus native trust
 checks are prerequisites for unrestricted distribution. No security bypass is
 part of installation guidance. See [RELEASING](RELEASING.md) and [M07](../M07.md)
 for the actual status. Report vulnerabilities through [SECURITY](../SECURITY.md).
+
+## M08 onboarding boundary
+
+Discovery only reads candidate metadata/bytes; it does not execute untrusted
+candidates. Rust holds expiring identity-bound discovery tokens and rejects
+arbitrary renderer paths, expired tokens and changed bytes. Official documentation
+opening accepts only a validated provider enum mapped to two fixed HTTPS URLs;
+there is no arbitrary URL opener. Tauri capabilities and CSP remain unchanged.
+
+Provider login is separate from task approval, explicitly initiated, cancellable
+and limited to three minutes/16 KiB through the existing process supervisor. Login
+output stays ephemeral and is neither exposed over IPC nor persisted. Forma never
+reads private credential files or requests passwords, API keys or session tokens.
+The provider itself manages authentication. Environment filtering remains in
+force; inherited API keys are excluded. Closing setup cancels active login;
+restart never resumes it. Browser processes intentionally handed off to the OS
+may outlive the CLI and remain the user's browser session.
+
+No installer/download, PATH editing, permission escalation, new sandbox guarantee
+or alternate task executor was added. Existing task approval, Claude consent,
+repository authorization and worktree restrictions remain authoritative.

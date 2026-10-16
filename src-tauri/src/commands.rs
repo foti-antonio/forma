@@ -155,6 +155,12 @@ pub fn handler<R: tauri::Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + 
         test_project,
         agent_recent,
         agent_providers,
+        agent_onboarding,
+        agent_authorize_discovered,
+        agent_login,
+        agent_cancel_login,
+        agent_login_status,
+        agent_setup_docs,
         agent_preferred,
         agent_save_preferences,
         agent_save_settings,
@@ -657,4 +663,61 @@ pub async fn test_project<R: tauri::Runtime>(
     run_id: String,
 ) -> Result<String> {
     git_task(app, move |s| s.test_project(&run_id)).await
+}
+
+#[tauri::command]
+pub async fn agent_onboarding<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    provider: String,
+) -> Result<crate::onboarding::Onboarding> {
+    git_task(app, move |s| s.agent_onboarding(&provider)).await
+}
+#[tauri::command]
+pub async fn agent_authorize_discovered<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    token: String,
+    confirmed: bool,
+) -> Result<()> {
+    git_task(app, move |s| {
+        s.agent_authorize_discovered(&token, confirmed)
+    })
+    .await
+}
+#[tauri::command]
+pub async fn agent_login<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    provider: String,
+    approved: bool,
+) -> Result<()> {
+    git_task(app, move |s| s.agent_login(&provider, approved)).await
+}
+#[tauri::command]
+pub async fn agent_cancel_login<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<()> {
+    git_task(app, |s| s.agent_cancel_login()).await
+}
+#[tauri::command]
+pub async fn agent_setup_docs(provider: String) -> Result<()> {
+    crate::agent_provider::provider(&provider)?;
+    let url = if provider == "codex" {
+        "https://developers.openai.com/codex/cli/"
+    } else {
+        "https://code.claude.com/docs/en/quickstart"
+    };
+    opener::open(url).map_err(|_| {
+        crate::agent_provider::error(
+            "Could not open the official installation guide. Copy its address into your browser.",
+        )
+    })
+}
+
+#[tauri::command]
+pub async fn agent_login_status<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<String> {
+    git_task(app, |s| {
+        Ok(s.agents
+            .login
+            .as_ref()
+            .map(|l| l.state.lock().unwrap_or_else(|e| e.into_inner()).clone())
+            .unwrap_or_else(|| "idle".into()))
+    })
+    .await
 }

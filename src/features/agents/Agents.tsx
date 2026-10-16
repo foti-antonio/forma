@@ -13,6 +13,8 @@ import {
 } from '../../lib/ipc';
 import { Worktrees, IndependentTests } from './Reliability';
 import { agents, isActive } from './store';
+import { Onboarding, AgentError } from './Onboarding';
+import { agentExplanation } from './onboarding-state';
 
 export function AgentHub() {
   const [open, setOpen] = useState(false);
@@ -78,6 +80,7 @@ export function AgentHub() {
 function Settings() {
   const [providers, setProviders] = useState<ProviderStatus[]>([]);
   const [preferred, setPreferred] = useState('codex');
+  const [setup, setSetup] = useState(false);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -124,11 +127,19 @@ function Settings() {
     );
   return (
     <section aria-label="Agent settings" aria-busy={busy}>
-      {error && (
-        <p role="alert" className="form-error">
-          {error}
-        </p>
+      <Button id="agent-setup" disabled={busy} onClick={() => setSetup(true)}>
+        Set up AI
+      </Button>
+      {setup && (
+        <Onboarding
+          initialProvider={preferred}
+          onClose={() => {
+            setSetup(false);
+            void perform(async () => {});
+          }}
+        />
       )}
+      {error && <AgentError details={error} />}
       {message && <p role="status">{message}</p>}
       {busy && <p role="status">Inspecting agent settings…</p>}
       <label htmlFor="preferred-agent">Preferred agent</label>
@@ -246,23 +257,64 @@ export function IssueAgent({
   disabled: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [setup, setSetup] = useState(false);
+  const [firstPreview, setFirstPreview] = useState<AgentPreview | null>(null);
   return (
-    <details
-      className="issue-related"
-      open={expanded}
-      onToggle={(e) => setExpanded(e.currentTarget.open)}
-    >
-      <summary>AI Agent</summary>
-      {expanded && (
-        <Assignment key={issue.id} issue={issue} disabled={disabled} />
+    <section aria-label="AI task setup">
+      <Button
+        type="button"
+        id="issue-run-ai"
+        disabled={disabled || issue.archived}
+        onClick={() => setSetup(true)}
+      >
+        Run with AI
+      </Button>
+      {setup && (
+        <Onboarding
+          projectId={issue.projectId}
+          onClose={() => setSetup(false)}
+          onReady={async (provider) => {
+            const preview = await agents.preview(
+              issue.projectId,
+              issue.id,
+              provider,
+            );
+            setFirstPreview(preview);
+            setExpanded(true);
+            setSetup(false);
+          }}
+        />
       )}
-    </details>
+      <details
+        className="issue-related"
+        open={expanded}
+        onToggle={(e) => setExpanded(e.currentTarget.open)}
+      >
+        <summary>AI Agent</summary>
+        {expanded && (
+          <Assignment
+            key={firstPreview?.token ?? issue.id}
+            issue={issue}
+            disabled={disabled}
+            initialPreview={firstPreview}
+          />
+        )}
+      </details>
+    </section>
   );
 }
-function Assignment({ issue, disabled }: { issue: Issue; disabled: boolean }) {
-  const [provider, setProvider] = useState('codex');
+function Assignment({
+  issue,
+  disabled,
+  initialPreview,
+}: {
+  issue: Issue;
+  disabled: boolean;
+  initialPreview: AgentPreview | null;
+}) {
+  const [provider, setProvider] = useState(initialPreview?.provider ?? 'codex');
   const [providers, setProviders] = useState<ProviderStatus[]>([]);
-  const [preview, setPreview] = useState<AgentPreview | null>(null);
+  const [preview, setPreview] = useState<AgentPreview | null>(initialPreview);
   const [elevated, setElevated] = useState(false);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
@@ -273,7 +325,7 @@ function Assignment({ issue, disabled }: { issue: Issue; disabled: boolean }) {
       .then(([p, v]) => {
         if (!stale) {
           setProviders(p);
-          setProvider(v);
+          setProvider(initialPreview?.provider ?? v);
         }
       })
       .catch((e) => {
@@ -285,7 +337,7 @@ function Assignment({ issue, disabled }: { issue: Issue; disabled: boolean }) {
     return () => {
       stale = true;
     };
-  }, []);
+  }, [initialPreview]);
   const perform = async (action: () => Promise<void>) => {
     setBusy(true);
     setError('');
@@ -303,11 +355,7 @@ function Assignment({ issue, disabled }: { issue: Issue; disabled: boolean }) {
         Runs use the saved issue and a dedicated branch/worktree. Save issue
         edits first. Configure executables in AI agents & runs → Agent settings.
       </p>
-      {error && (
-        <p role="alert" className="form-error">
-          {error}
-        </p>
-      )}
+      {error && <AgentError details={error} />}
       {busy && <p role="status">Preparing agent…</p>}
       <label htmlFor="issue-agent">Coding agent</label>
       <select
@@ -385,7 +433,7 @@ function Assignment({ issue, disabled }: { issue: Issue; disabled: boolean }) {
               isolation.
             </label>
           )}
-          {error && <p role="alert">{error}</p>}
+          {error && <AgentError details={error} />}
           <div className="dialog-actions">
             <Button
               type="button"
@@ -514,11 +562,7 @@ function Runs({ issue, revision = 0 }: { issue?: Issue; revision?: number }) {
     <section aria-label="Agent runs" aria-busy={loading}>
       <h3>Agent runs {issue && `· ${issue.identifier}`}</h3>
       {loading && <p role="status">Loading runs…</p>}
-      {error && (
-        <p role="alert" className="form-error">
-          {error}
-        </p>
-      )}
+      {error && <AgentError details={error} />}
       {!loading && !runs.length && (
         <p className="muted">No agent runs on this page.</p>
       )}
@@ -548,7 +592,7 @@ function Runs({ issue, revision = 0 }: { issue?: Issue; revision?: number }) {
             s · Exit {run.exitCode ?? '—'} {run.review && `· ${run.review}`}
           </p>
           <p>{run.issueTitle}</p>
-          <p>{run.result}</p>
+          <p>{agentExplanation(run.result)}</p>
           <Progress log={run.log} />
           <p className="git-target">
             {run.branch}
@@ -557,6 +601,7 @@ function Runs({ issue, revision = 0 }: { issue?: Issue; revision?: number }) {
           </p>
           <details>
             <summary>Progress & bounded logs</summary>
+            <p>{run.result}</p>
             <pre className="agent-output">
               {run.log || 'No output received.'}
             </pre>
@@ -648,7 +693,7 @@ function Runs({ issue, revision = 0 }: { issue?: Issue; revision?: number }) {
             <span className="git-target">{review.run.branch}</span>.
           </p>
           <IndependentTests runId={review.run.id} />
-          {error && <p role="alert">{error}</p>}
+          {error && <AgentError details={error} />}
           <div className="dialog-actions">
             <Button
               type="button"
@@ -738,7 +783,7 @@ function Concurrency() {
         Each process uses your OS account. Worktrees share Git metadata; CPU and
         RAM are not isolated.
       </p>
-      {error && <p role="alert">{error}</p>}
+      {error && <AgentError details={error} />}
     </fieldset>
   );
 }
@@ -791,7 +836,7 @@ function Queue() {
         as slots become available. Later approvals require another Start action.
       </p>
       {loading && <p role="status">Loading approved tasks…</p>}
-      {error && <p role="alert">{error}</p>}
+      {error && <AgentError details={error} />}
       <Button
         disabled={busy}
         onClick={() => void perform(() => agents.startQueue(false))}

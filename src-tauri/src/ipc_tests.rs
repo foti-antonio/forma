@@ -185,6 +185,30 @@ fn production_ipc_contract_issue_label_subtask_activity_and_restart() {
         .unwrap()
         .agent_authorize("codex", &crate::agent_tests::fixture_executable())
         .unwrap();
+    assert!(invoke(&w, "agent_onboarding", json!({"provider":"untrusted"})).is_err());
+    assert!(invoke(
+        &w,
+        "agent_authorize_discovered",
+        json!({"token":"/arbitrary/executable","confirmed":true})
+    )
+    .is_err());
+    assert!(invoke(
+        &w,
+        "agent_authorize_discovered",
+        json!({"token":"fake","confirmed":false})
+    )
+    .is_err());
+    assert!(invoke(
+        &w,
+        "agent_login",
+        json!({"provider":"codex","approved":false})
+    )
+    .is_err());
+    let setup = invoke(&w, "agent_onboarding", json!({"provider":"codex"})).unwrap();
+    assert_eq!(setup["authentication"], "authenticated");
+    assert_eq!(setup["ready"], true);
+    assert_eq!(invoke(&w, "agent_login_status", json!({})).unwrap(), "idle");
+    invoke(&w, "agent_cancel_login", json!({})).unwrap();
     let providers = invoke(&w, "agent_providers", json!({})).unwrap();
     assert!(providers
         .as_array()
