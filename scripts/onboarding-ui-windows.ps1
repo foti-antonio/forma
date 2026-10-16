@@ -2,6 +2,8 @@ param([int]$AppPid, [string]$Fixture, [string]$Repository, [string]$Evidence)
 $started = Get-Date
 $script:actions = 0
 $stages = @{}
+# Windows PowerShell 5 reads BOM-less files as ANSI. Build this Unicode label explicitly.
+$folderControl = 'Select Git folder' + [char]0x2026
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
@@ -84,10 +86,10 @@ Click 'Run with AI'
 Mark 'setup'
 Click 'Find installation'
 Click ('Authorize this installation: ' + $Fixture)
-$null = Wait-Node 'Select Git folder…'
+$null = Wait-Node $folderControl
 Mark 'authorized'
 Mark 'signed_in'
-Click 'Select Git folder…'
+Click $folderControl
 # Standard Windows folder chooser. Only input into this app's foreground window.
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type 'using System; using System.Runtime.InteropServices; public class OnboardingWindow { [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint p); }'
