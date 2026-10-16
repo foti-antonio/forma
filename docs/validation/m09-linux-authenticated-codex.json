@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "evidence": "authenticated-codex",
+  "result": "passed",
+  "actions": 15,
+  "errors": 0,
+  "recoveries": 1,
+  "elapsed_seconds": 164.819,
+  "stages": {
+    "setup": {
+      "elapsed_seconds": 12.346,
+      "actions": 9
+    },
+    "authorized": {
+      "elapsed_seconds": 41.388,
+      "actions": 11
+    },
+    "signed_in": {
+      "elapsed_seconds": 64.293,
+      "actions": 11
+    },
+    "repository": {
+      "elapsed_seconds": 66.51,
+      "actions": 11
+    },
+    "preview": {
+      "elapsed_seconds": 105.015,
+      "actions": 12
+    },
+    "completed": {
+      "elapsed_seconds": 162.613,
+      "actions": 13
+    },
+    "reviewed": {
+      "elapsed_seconds": 164.818,
+      "actions": 15
+    }
+  }
+}

@@ -250,7 +250,7 @@ try:
     until(lambda: rows("SELECT count(*) FROM agent_runs WHERE review='accepted'") == [(1,)], 'review persisted')
     metrics.mark('reviewed')
     metrics.result = 'passed'
-    print('PASS: native discovered authorization without path entry, explicit login/cancel, permissions, native repository connection, exact prompt, final approval, coordinator execution and review.', flush=True)
+    print('PASS: ' + ('installed authenticated Codex, discovered authorization, native repository selection, exact prompt, final approval, one task and result review.' if args.real_codex else 'native discovered authorization without path entry, explicit login/cancel, permissions, native repository connection, exact prompt, final approval, coordinator execution and review.'), flush=True)
 except Exception:
     metrics.errors += 1
     if process.poll() is None and focused():

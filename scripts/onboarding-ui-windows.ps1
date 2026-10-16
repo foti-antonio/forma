@@ -17,7 +17,8 @@ function Find-Named([string]$Name, [bool]$Edit = $false) {
     $condition = [System.Windows.Automation.AndCondition]::new($condition,
       [System.Windows.Automation.PropertyCondition]::new($A::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit))
   }
-  foreach ($window in $windows) {
+  for ($j = 0; $j -lt $windows.Count; $j++) {
+    $window = $windows.Item($j)
     if (!$Edit -and $window.Current.Name -eq $Name) { return $window }
     $node = $window.FindFirst($scope, $condition)
     if ($node) { return $node }
@@ -66,7 +67,14 @@ Click 'Create issue'
 $end = (Get-Date).AddSeconds(40)
 do {
   $window = $A::RootElement.FindFirst([System.Windows.Automation.TreeScope]::Children, $pidCondition)
-  $node = @($window.FindAll($scope, [System.Windows.Automation.Condition]::TrueCondition)) | Where-Object { $_.Current.Name.Contains('First approved task') -and $_.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button } | Select-Object -First 1
+  $node = $null
+  if ($window) {
+    $buttons = $window.FindAll($scope, [System.Windows.Automation.PropertyCondition]::new($A::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button))
+    for ($j = 0; $j -lt $buttons.Count; $j++) {
+      $button = $buttons.Item($j)
+      if ($button.Current.Name -like '*First approved task*') { $node = $button; break }
+    }
+  }
   if ($node) { break }
   Start-Sleep -Milliseconds 250
 } while ((Get-Date) -lt $end)
