@@ -11,11 +11,18 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 [StructLayout(LayoutKind.Sequential)] public struct PickerPoint { public int X; public int Y; public PickerPoint(int x, int y) { X=x; Y=y; } }
 public class OnboardingWindow {
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint p);
   [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(PickerPoint p);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder value, int length);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)] private static extern IntPtr SendMessageTimeout(IntPtr h, uint msg, UIntPtr param, string text, uint flags, uint timeout, out UIntPtr result);
+  public static void SetEditText(IntPtr h, string text) {
+    UIntPtr result;
+    if (SendMessageTimeout(h, 0x000C, UIntPtr.Zero, text, 2, 5000, out result) == IntPtr.Zero || result == UIntPtr.Zero) throw new InvalidOperationException("Native edit did not accept text");
+  }
   [DllImport("user32.dll", SetLastError=true)] public static extern bool SetCursorPos(int x, int y);
   [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra);
 }
@@ -47,6 +54,13 @@ function Find-Named([string]$Name, [bool]$Edit = $false, [bool]$Pressable = $fal
     $split = [System.Windows.Automation.PropertyCondition]::new($A::ControlTypeProperty, [System.Windows.Automation.ControlType]::SplitButton)
     $check = [System.Windows.Automation.PropertyCondition]::new($A::ControlTypeProperty, [System.Windows.Automation.ControlType]::CheckBox)
     $roles = [System.Windows.Automation.OrCondition]::new([System.Windows.Automation.OrCondition]::new($button, $split), $check)
+    if ($Name -eq 'Select Folder') {
+      # The hosted image exposes the standard native IDOK button as a Pane.
+      $nativeOk = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new($A::ControlTypeProperty, [System.Windows.Automation.ControlType]::Pane),
+        [System.Windows.Automation.PropertyCondition]::new($A::AutomationIdProperty, '1'))
+      $roles = [System.Windows.Automation.OrCondition]::new($roles, $nativeOk)
+    }
     $condition = [System.Windows.Automation.AndCondition]::new($condition, $roles)
   }
   for ($j = 0; $j -lt $windows.Count; $j++) {
@@ -162,8 +176,18 @@ $picker = Wait-Node 'Connect Git repository'
 $null = Wait-Node 'Select Folder' $false $true
 $folder = Find-Named 'Folder:' $true
 if (!$folder) { $folder = Find-Named 'File name:' $true }
+$nativeEdit = $picker.FindFirst($scope, [System.Windows.Automation.PropertyCondition]::new($A::AutomationIdProperty, '1152'))
 $folderPattern = $null
-if ($folder -and $folder.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$folderPattern)) {
+if ($nativeEdit -and $nativeEdit.Current.NativeWindowHandle -ne 0) {
+  $editHandle = [IntPtr]::new($nativeEdit.Current.NativeWindowHandle)
+  [uint32]$editOwner = 0
+  $null = [OnboardingWindow]::GetWindowThreadProcessId($editHandle, [ref]$editOwner)
+  $className = [System.Text.StringBuilder]::new(256)
+  $null = [OnboardingWindow]::GetClassName($editHandle, $className, 256)
+  if ($editOwner -ne $AppPid -or $className.ToString() -ne 'Edit') { throw 'Refusing input into an unknown native folder field' }
+  Write-Output 'Native folder selection: process-checked standard Edit 1152'
+  [OnboardingWindow]::SetEditText($editHandle, $Repository)
+} elseif ($folder -and $folder.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$folderPattern)) {
   Write-Output 'Native folder selection: labelled path field'
   $folderPattern.SetValue($Repository)
 } else {
