@@ -222,4 +222,13 @@ fn discovery_does_not_execute_candidates_and_rescans_missing_or_incompatible_fil
     assert!(result.authorized && result.compatible);
     assert_eq!(result.authentication, "unauthenticated");
     assert!(!result.ready);
+    let old_cli = dir.path().join(if cfg!(windows) {
+        "codex-incompatible.exe"
+    } else {
+        "codex-incompatible"
+    });
+    std::fs::copy(fixture_executable(), &old_cli).unwrap();
+    let error = service.agent_authorize("codex", &old_cli).unwrap_err();
+    assert!(error.message.contains("lacks required security options"));
+    assert!(!service.agent_onboarding("codex").unwrap().ready);
 }

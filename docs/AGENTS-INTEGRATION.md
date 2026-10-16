@@ -1,4 +1,4 @@
-# AI agent integration (M05/M06)
+# AI agent integration (M05–M08)
 
 Forma launches locally installed Codex CLI or Claude Code after a user previews
 and explicitly approves a saved issue. Provider inference may require network
@@ -6,18 +6,23 @@ access. Forma itself has no cloud service, login or API-key database.
 
 ## Usage
 
-1. Connect a Git repository in Project settings. Commit or otherwise preserve
-   local changes before running; Forma rejects dirty repositories.
-2. Open **AI agents & runs → Agent settings**. Choose a trusted native executable
-   using the file picker. This authorizes executing its version/help commands.
-   Inspect its installation first: a version string cannot prove authenticity.
-   Authenticate separately with the provider's CLI.
-3. Set the preferred agent, maximum runtime, bounded log size and policy. Codex
-   uses **Restricted**. Claude uses **Claude tools** with restricted file operations and requires a
-   separate acknowledgement of the missing OS sandbox on every execution.
-4. Save the issue. Expand **AI Agent**, choose a provider, then **Preview agent
-   task**. Review the exact prompt, canonical executable, version, repository,
-   base commit, limits and warning. **Approve & run once** starts one task; **Approve & add to queue** records approval without execution.
+1. Open **AI agents & runs → Agent settings → Set up AI**. Choose Codex or Claude
+   Code, find an installation and authorize only trusted software. Discovery does
+   not execute candidates; authorization permits version/help and auth-status
+   checks. Follow official installation guidance and rescan if no installation is
+   found. A native file picker remains available for custom installations.
+2. Sign in using the explicit provider browser-login action, then check
+   authentication. Forma never requests passwords, API keys or tokens. Unknown
+   status blocks guided readiness; terminal login remains a fallback.
+3. Save the issue and choose **Run with AI**. The wizard connects its Git folder
+   with the native picker when needed. Preserve local changes yourself; Forma
+   rejects dirty repositories. Review conservative permissions and host exposure.
+   Recommended settings are explicit and preserve required OS isolation.
+4. **Preview first task** opens the existing exact-prompt approval dialog. Review
+   the canonical executable/version, repository/base, limits and warning. Claude
+   requires its separate host-risk acknowledgement on every run. **Approve & run
+   once** starts one task; **Approve & add to queue** records approval without
+   execution. Advanced users can still expand **AI Agent → Preview agent task**.
 5. Watch progress, elapsed time and bounded logs in issue history or the global
    **Agent runs** panel. **Cancel execution** terminates the process group/job.
 6. **Inspect result** shows changed paths, additions/deletions and a bounded text
@@ -33,7 +38,7 @@ or network plugin is exposed to JavaScript; Tauri capabilities remain unchanged.
 
 Native file selection or explicit authorization of a Rust-discovered candidate authorizes a CLI. PATH discovery is informational and
 never executes a candidate. Authorization stores a canonical path and SHA-256
-identity. A changed executable needs selection again, including after upgrades.
+identity. A changed executable needs fresh authorization, including after upgrades.
 Unix group/world-writable executable files are rejected. Windows requires native
 `.exe` installations; `.bat`/`.cmd` shell wrappers are deliberately unsupported.
 Help/version inspection has a five-second deadline and bounded output. Required

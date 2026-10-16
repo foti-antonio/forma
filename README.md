@@ -176,6 +176,11 @@ accessibility-driven queue/independent-test/cleanup flow, workspace/project
 edit/delete, appearance persistence, and minimum-window checks (the resize probe
 requires Hyprland 0.55+ Lua dispatchers). It uses the
 compiled fixture and an isolated repository; keep Forma focused throughout.
+Run `python3 scripts/native-onboarding-smoke.py src-tauri/target/debug/forma` for
+the M08 Linux/Hyprland guided flow with an isolated compiled provider: discovery,
+authorization without executable path entry, login cancellation, native Git folder
+selection, exact first-task prompt, explicit execution and result review. It needs
+PyGObject/AT-SPI as well as `wtype` and `grim`; it never uses real credentials.
 Run `python3 scripts/native-git-smoke.py src-tauri/target/debug/forma` for a separate
 real-repository flow covering native folder connection, confirmed branch/commit
 links and restart persistence. It additionally requires Python GObject bindings

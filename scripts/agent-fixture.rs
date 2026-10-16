@@ -9,6 +9,10 @@ fn main() {
   }
   return;
  }
+ if std::env::current_exe().unwrap().file_name().unwrap().to_string_lossy().contains("incompatible") {
+  if args.contains(&"--version".into()) {println!("codex-cli 0.1.0");} else {println!("Legacy CLI without required security flags");}
+  return;
+ }
  if args.contains(&"--version".into()){if std::env::current_exe().unwrap().file_name().unwrap().to_string_lossy().contains("claude") {println!("2.1.0 (Claude Code)");} else {println!("codex-cli simulated-m05");}return;}
  if args.contains(&"--help".into()){for n in 0..260 {println!("Capability detail line {n}");}println!("--no-daemon --ask-for-approval --color --sandbox --json --ignore-user-config --ignore-rules --ephemeral --restricted --print --output-format --permission-mode --tools --allowedTools --strict-mcp-config --mcp-config --settings --verbose --no-session-persistence dontAsk stream-json");return;}
  if args==["login","status"] {println!("Logged in using ChatGPT");return;}
