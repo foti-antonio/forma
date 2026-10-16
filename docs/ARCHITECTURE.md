@@ -105,7 +105,8 @@ No additional Tauri capabilities were added. The main capability
 has no core/plugin permissions because native window decorations supply window
 controls. Tauri app commands are the only application API. CSP permits bundled
 assets, inline styles for project colors, and local IPC; remote scripts/frames
-are not used. There is no external content, telemetry, login, or network client.
+are not used. There is no embedded external content, telemetry, Forma account, or application
+network client. Provider login can open the provider's official browser flow.
 
 Rust domain tests can compile with `--no-default-features`; this excludes the
 Tauri host, not the database or business logic. Desktop is the default feature.
